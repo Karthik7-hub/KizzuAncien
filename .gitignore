@@ -1,0 +1,59 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.project
+.idea/
+.vscode/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Flutter/Dart related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Ephemeral/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Runner/GeneratedPluginRegistrant.[mh]
+**/android/key.properties
+**/android/app/src/main/res/raw/google_app_id
+**/android/app/google-services.json
+**/android/local.properties
+**/android/Flutter/Generated.gradle
+**/android/Flutter/flutter_export_environment.sh
+**/android/Flutter/flutter_messenger_messenger.properties
+**/android/app/src/main/java/io/flutter/plugins/
+**/ios/Pods/
+**/.dart_tool/
+**/.flutter-plugins
+**/.flutter-plugins-dependencies
+**/.packages
+**/.pub-cache/
+**/.pub/
+**/build/
+
+# Node/Backend
+**/node_modules/
+**/server/.env
+**/server/npm-debug.log
+**/server/yarn-debug.log
+**/server/yarn-error.log
+
+# Image/Video cache
+**/assets/cache/
+
+# Executables
+*.exe
+*.dll
+*.so
+*.dylib

@@ -1,0 +1,40 @@
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:kizzu_ancien/providers/auth_provider.dart';
+import 'package:kizzu_ancien/providers/challenge_provider.dart';
+import 'package:kizzu_ancien/providers/friend_provider.dart';
+import 'package:kizzu_ancien/providers/truth_dare_provider.dart';
+import 'package:kizzu_ancien/providers/notification_provider.dart';
+import 'package:kizzu_ancien/providers/navigation_provider.dart';
+import 'package:kizzu_ancien/screens/splash_screen.dart';
+import 'package:kizzu_ancien/theme/app_theme.dart';
+
+void main() {
+  runApp(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => ChallengeProvider()),
+        ChangeNotifierProvider(create: (_) => FriendProvider()),
+        ChangeNotifierProvider(create: (_) => TruthDareProvider()),
+        ChangeNotifierProvider(create: (_) => NotificationProvider()),
+        ChangeNotifierProvider(create: (_) => NavigationProvider()),
+      ],
+      child: const KizzuAncienApp(),
+    ),
+  );
+}
+
+class KizzuAncienApp extends StatelessWidget {
+  const KizzuAncienApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'KizzuAncien',
+      debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
+      home: const SplashScreen(),
+    );
+  }
+}
