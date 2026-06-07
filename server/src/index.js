@@ -16,7 +16,6 @@ const notificationRoutes = require('./routes/notificationRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
-const PORT = process.env.PORT || 5000;
 const isProduction = process.env.NODE_ENV === 'production';
 
 // Rate limiting
@@ -35,18 +34,13 @@ app.use(helmet({
 app.use(limiter);
 app.use(compression());
 app.use(cors({
-  origin: isProduction ? process.env.CLIENT_URL : true,
+  origin: true, // Native apps don't send Origin headers usually, keep true or specific domain
   credentials: true
 }));
 app.use(express.json());
 
 if (!isProduction) {
   app.use(morgan('dev'));
-  // Development-only request logger
-  app.use((req, res, next) => {
-    console.log(`📩 [${new Date().toLocaleTimeString()}] ${req.method} ${req.url}`);
-    next();
-  });
 }
 
 // Routes
@@ -58,20 +52,32 @@ app.use('/api/truth-dare', truthDareRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 app.get('/', (req, res) => res.json({ status: 'KizzuAncien API' }));
+app.get('/health', (req, res) => res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() }));
 
 app.use(errorHandler);
 
-// Database connection & Server Start
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    if (!isProduction) console.log('✅ MongoDB Connected');
-    app.listen(PORT, '0.0.0.0', () => {
-      if (!isProduction) {
-        console.log(`🚀 Server running at: http://localhost:${PORT}`);
-      }
-    });
-  })
-  .catch(err => {
+// Database connection for Serverless
+const connectDB = async () => {
+  if (mongoose.connection.readyState >= 1) return;
+  try {
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log('✅ MongoDB Connected');
+  } catch (err) {
     console.error('❌ MongoDB Connection Error:', err.message);
-    process.exit(1);
+  }
+};
+
+// Start server for local dev or handle serverless
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 5000;
+  connectDB().then(() => {
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Local Server running at: http://localhost:${PORT}`);
+    });
   });
+} else {
+  // On Vercel, we just need to ensure the DB connects when the lambda starts
+  connectDB();
+}
+
+module.exports = app;
