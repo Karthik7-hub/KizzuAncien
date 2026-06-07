@@ -52,26 +52,36 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _handleGoogleLogin() async {
+    debugPrint('🚀 Starting Google Login...');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
+      debugPrint('🔑 Using serverClientId: ${AppConstants.googleServerClientId}');
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: kIsWeb ? AppConstants.googleClientId : null,
+        serverClientId: AppConstants.googleServerClientId,
       );
+      
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+      debugPrint('👤 Google User Result: $googleUser');
 
-      if (googleUser == null) return;
+      if (googleUser == null) {
+        debugPrint('⚠️ Google Login Cancelled by User');
+        return;
+      }
 
       final Map<String, dynamic> googleData = {
         'googleId': googleUser.id,
         'email': googleUser.email,
         'name': googleUser.displayName,
       };
+      debugPrint('📊 Google Data Collected: $googleData');
 
       // Check if user exists
       final exists = await authProvider.checkEmail(googleUser.email);
+      debugPrint('🔍 User Exists in DB: $exists');
 
       if (!exists) {
         if (mounted) {
+          debugPrint('🆕 Navigating to CompleteProfileScreen');
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -80,7 +90,9 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
       } else {
+        debugPrint('🔐 Logging in existing user via API...');
         final result = await authProvider.googleLogin(googleData);
+        debugPrint('✅ API Login Result: $result');
         if (result['exists'] == true && mounted) {
           Navigator.of(context).pushReplacement(
             MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -88,6 +100,7 @@ class _AuthScreenState extends State<AuthScreen> {
         }
       }
     } catch (e) {
+      debugPrint('❌ GOOGLE LOGIN CRITICAL ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Google Login failed: $e'), backgroundColor: Colors.redAccent),
