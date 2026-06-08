@@ -77,26 +77,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           );
                         },
                         child: Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(16),
+                          margin: const EdgeInsets.only(bottom: 1),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           decoration: BoxDecoration(
                             color: n.read ? Colors.transparent : AppTheme.zinc950,
-                            borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-                            border: Border.all(
-                              color: n.read ? AppTheme.zinc900.withValues(alpha: 0.5) : AppTheme.zinc900,
+                            border: Border(
+                              bottom: BorderSide(color: AppTheme.zinc900, width: 0.5),
                             ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (n.sender != null)
-                                AvatarWidget(user: n.sender!, size: 36)
+                                AvatarWidget(user: n.sender!, size: 32, showBorder: false)
                               else
                                 Container(
-                                  width: 36,
-                                  height: 36,
+                                  width: 32,
+                                  height: 32,
                                   decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900),
-                                  child: const Icon(LucideIcons.bell, size: 16, color: AppTheme.zinc500),
+                                  child: const Icon(LucideIcons.bell, size: 14, color: AppTheme.zinc500),
                                 ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -106,15 +105,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     Text(
                                       n.message,
                                       style: TextStyle(
-                                        color: AppTheme.white,
+                                        color: n.read ? AppTheme.zinc400 : AppTheme.white,
                                         fontSize: 14,
-                                        fontWeight: n.read ? FontWeight.normal : FontWeight.bold,
+                                        fontWeight: n.read ? FontWeight.normal : FontWeight.w500,
+                                        letterSpacing: -0.1,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       timeago.format(n.createdAt),
-                                      style: const TextStyle(color: AppTheme.zinc600, fontSize: 11),
+                                      style: TextStyle(
+                                        color: AppTheme.zinc600,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -123,9 +127,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 Container(
                                   width: 6,
                                   height: 6,
-                                  margin: const EdgeInsets.only(top: 4, left: 8),
+                                  margin: const EdgeInsets.only(top: 6, left: 8),
                                   decoration: const BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppTheme.white,
                                     shape: BoxShape.circle,
                                   ),
                                 ),

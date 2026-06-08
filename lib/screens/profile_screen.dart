@@ -45,98 +45,79 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         color: AppTheme.white,
-        backgroundColor: AppTheme.zinc900,
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
-          child: Column(
-            children: [
-              // Profile Header
-              Center(
-                child: Column(
-                  children: [
-                    Stack(
+        backgroundColor: AppTheme.zinc950,
+        child: CustomScrollView(
+          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 24),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Profile Header
+                  Center(
+                    child: Column(
                       children: [
-                        Hero(
-                          tag: 'profile-pic',
-                          child: user != null 
-                              ? AvatarWidget(user: user, size: 110)
-                              : Container(width: 110, height: 110, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900)),
+                        Stack(
+                          children: [
+                            user != null 
+                                ? AvatarWidget(user: user, size: 100, showBorder: true)
+                                : Container(width: 100, height: 100, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900)),
+                          ],
                         ),
-                        /* 
-                        Positioned(
-                          bottom: 0,
-                          right: 0,
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: AppTheme.white,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: AppTheme.black, width: 4),
-                            ),
-                            child: const Icon(LucideIcons.edit3, size: 16, color: AppTheme.black),
-                          ),
+                        const SizedBox(height: 20),
+                        Text(
+                          user?.name ?? 'Loading...',
+                          style: Theme.of(context).textTheme.displayLarge,
                         ),
-                        */
+                        const SizedBox(height: 4),
+                        Text(
+                          '@${user?.username ?? ""}',
+                          style: const TextStyle(fontSize: 15, color: AppTheme.zinc500, fontWeight: FontWeight.w500),
+                        ),
                       ],
                     ),
-                    const SizedBox(height: 20),
-                    Text(
-                      user?.name ?? 'Loading...',
-                      style: const TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.white,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '@${user?.username ?? ""}',
-                      style: const TextStyle(fontSize: 15, color: AppTheme.zinc500, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 40),
+                  ),
+                  const SizedBox(height: 40),
 
-              // Stats Grid
-              GridView.count(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 2,
-                childAspectRatio: 1.5,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                children: [
-                  _buildStatCard(stats['completed']?.toString() ?? '0', 'COMPLETED', LucideIcons.checkCircle),
-                  _buildStatCard(stats['streak']?.toString() ?? '0', 'STREAK', LucideIcons.flame, color: AppTheme.accent),
-                  _buildStatCard(stats['pointsEarned']?.toString() ?? '0', 'TOTAL EARNED', LucideIcons.award),
-                  _buildStatCard(stats['friends']?.toString() ?? '0', 'FRIENDS', LucideIcons.users),
-                ],
-              ),
-              const SizedBox(height: 32),
+                  // Stats Grid
+                  GridView.count(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    childAspectRatio: 1.5,
+                    mainAxisSpacing: 12,
+                    crossAxisSpacing: 12,
+                    children: [
+                      _buildStatCard(stats['completed']?.toString() ?? '0', 'COMPLETED', LucideIcons.checkCircle),
+                      _buildStatCard(stats['streak']?.toString() ?? '0', 'STREAK', LucideIcons.flame, color: AppTheme.accent),
+                      _buildStatCard(stats['pointsEarned']?.toString() ?? '0', 'TOTAL EARNED', LucideIcons.award),
+                      _buildStatCard(stats['friends']?.toString() ?? '0', 'FRIENDS', LucideIcons.users),
+                    ],
+                  ),
+                  const SizedBox(height: 32),
 
-              _buildSettingItem(
-                icon: LucideIcons.logOut,
-                title: 'Sign Out',
-                textColor: Colors.redAccent,
-                iconColor: Colors.redAccent,
-                onTap: () async {
-                  HapticFeedback.mediumImpact();
-                  await authProvider.logout();
-                  if (context.mounted) {
-                    Navigator.of(context).pushAndRemoveUntil(
-                      MaterialPageRoute(builder: (context) => const AuthScreen()),
-                      (route) => false,
-                    );
-                  }
-                },
+                  _buildSettingItem(
+                    icon: LucideIcons.logOut,
+                    title: 'Sign Out',
+                    textColor: Colors.redAccent,
+                    iconColor: Colors.redAccent,
+                    onTap: () async {
+                      HapticFeedback.mediumImpact();
+                      await authProvider.logout();
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(builder: (context) => const AuthScreen()),
+                          (route) => false,
+                        );
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 140),
+                ]),
               ),
-              const SizedBox(height: 140),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -30,7 +30,7 @@ exports.sendRequest = async (req, res, next) => {
       sender: req.user._id,
       type: 'friend_request',
       relatedId: friendRequest._id,
-      message: `${req.user.name} sent you a friend request`
+      message: `${req.user.name} sent a friend request`
     });
 
     res.status(201).json(friendRequest);
@@ -56,7 +56,7 @@ exports.respondToRequest = async (req, res, next) => {
         recipient: friendRequest.requester,
         sender: req.user._id,
         type: 'friend_request_accepted',
-        message: `${req.user.name} accepted your friend request`
+        message: `${req.user.name} accepted friend request`
       });
     }
 

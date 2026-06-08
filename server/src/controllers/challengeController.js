@@ -22,7 +22,7 @@ exports.createChallenge = async (req, res, next) => {
       sender: req.user._id,
       type: 'challenge_received',
       relatedId: challenge._id,
-      message: `${req.user.name} challenged you: ${title}`
+      message: `${req.user.name} sent a challenge: ${title}`
     });
 
     res.status(201).json(challenge);
@@ -89,7 +89,7 @@ exports.submitProof = async (req, res, next) => {
       sender: req.user._id,
       type: 'submission_received',
       relatedId: submission._id,
-      message: `${req.user.name} submitted proof for: ${challenge.title}`
+      message: `${req.user.name} submitted verification for ${challenge.title}`
     });
 
     res.status(201).json(submission);
@@ -163,7 +163,9 @@ async function handleReview(submission, status, req, res) {
     sender: req.user._id,
     type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected',
     relatedId: challenge._id,
-    message: `Your proof for "${challenge.title}" was ${status}`
+    message: status === 'approved'
+      ? `Verification for "${challenge.title}" approved`
+      : `Verification for "${challenge.title}" declined`
   });
 
   res.json({ submission, challenge });

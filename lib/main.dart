@@ -8,8 +8,12 @@ import 'package:kizzu_ancien/providers/notification_provider.dart';
 import 'package:kizzu_ancien/providers/navigation_provider.dart';
 import 'package:kizzu_ancien/screens/splash_screen.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
+import 'package:kizzu_ancien/services/notification_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
+
   runApp(
     MultiProvider(
       providers: [

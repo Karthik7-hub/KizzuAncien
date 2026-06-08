@@ -67,114 +67,140 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       onRefresh: _refreshData,
       color: AppTheme.white,
       backgroundColor: AppTheme.zinc950,
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(AppTheme.padding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Good ${DateTime.now().hour < 12 ? "morning" : DateTime.now().hour < 17 ? "afternoon" : "evening"}',
-                        style: textTheme.labelLarge,
+      child: CustomScrollView(
+        physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+        slivers: [
+          SliverPadding(
+            padding: const EdgeInsets.all(AppTheme.padding),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                // Header
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Good ${DateTime.now().hour < 12 ? "morning" : DateTime.now().hour < 17 ? "afternoon" : "evening"}',
+                            style: textTheme.labelLarge,
+                          ),
+                          Text(
+                            user?.name.split(" ")[0] ?? "Elite",
+                            style: textTheme.displayLarge,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
                       ),
-                      Text(
-                        user?.name.split(" ")[0] ?? "Elite",
-                        style: textTheme.displayLarge,
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        navigationProvider.setIndex(2);
+                      },
+                      child: user != null 
+                        ? AvatarWidget(user: user, size: 48, showBorder: true)
+                        : Container(width: 48, height: 48, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 24),
+
+                // Streak & Points Row
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildSummaryStat(
+                        icon: LucideIcons.flame,
+                        label: 'Day Streak',
+                        value: '${user?.streak ?? 0}',
+                        color: AppTheme.accent,
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildSummaryStat(
+                        icon: LucideIcons.award,
+                        label: 'Points',
+                        value: '${user?.points ?? 0}',
+                        color: Colors.white,
+                      ),
+                    ),
+                  ],
                 ),
-                GestureDetector(
-                  onTap: () => navigationProvider.setIndex(2),
-                  child: user != null 
-                    ? AvatarWidget(user: user, size: 48, showBorder: true)
-                    : Container(width: 48, height: 48, decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900)),
-                ),
-              ],
+                const SizedBox(height: 32),
+
+                if (pendingReviews.isNotEmpty) ...[
+                  _buildSectionTitle('REQUIRED ATTENTION'),
+                  const SizedBox(height: 12),
+                  ...pendingReviews.map((c) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _buildActionItem(
+                      context,
+                      icon: LucideIcons.checkCircle2,
+                      title: 'Review verification',
+                      subtitle: 'From ${c.recipient.name}',
+                      iconColor: AppTheme.black,
+                      iconBgColor: AppTheme.white,
+                      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(challenge: c))),
+                    ),
+                  )),
+                  const SizedBox(height: 20),
+                ],
+
+                _buildSectionTitle('ACTIVE CHALLENGES'),
+                const SizedBox(height: 12),
+              ]),
             ),
-            const SizedBox(height: 24),
-
-            // Streak & Points Row
-            Row(
-              children: [
-                Expanded(
-                  child: _buildSummaryStat(
-                    icon: LucideIcons.flame,
-                    label: 'Day Streak',
-                    value: '${user?.streak ?? 0}',
-                    color: AppTheme.accent,
-                  ),
+          ),
+          
+          if (challengeProvider.isLoading && activeChallenges.isEmpty)
+            const SliverFillRemaining(
+              hasScrollBody: false,
+              child: Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+            )
+          else if (activeChallenges.isEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding),
+              sliver: SliverToBoxAdapter(
+                child: _buildEmptyState(
+                  icon: LucideIcons.zapOff,
+                  msg: 'No active challenges.\nStart one to keep your streak.',
+                  actionLabel: 'Browse Friends',
+                  onAction: () => navigationProvider.setIndex(1),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _buildSummaryStat(
-                    icon: LucideIcons.award,
-                    label: 'Points',
-                    value: '${user?.points ?? 0}',
-                    color: Colors.white,
-                  ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding),
+              sliver: SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _buildChallengeCard(context, challenge: activeChallenges[index]),
+                    );
+                  },
+                  childCount: activeChallenges.length,
                 ),
-              ],
+              ),
             ),
-            const SizedBox(height: 32),
 
-            if (pendingReviews.isNotEmpty) ...[
-              _buildSectionTitle('REQUIRED ATTENTION'),
-              const SizedBox(height: 12),
-              ...pendingReviews.map((c) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildActionItem(
-                  context,
-                  icon: LucideIcons.checkCircle2,
-                  title: 'Review verification',
-                  subtitle: 'From ${c.recipient.name}',
-                  iconColor: AppTheme.black,
-                  iconBgColor: AppTheme.white,
-                  onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(challenge: c))),
-                ),
-              )),
-              const SizedBox(height: 20),
-            ],
-
-            _buildSectionTitle('ACTIVE CHALLENGES'),
-            const SizedBox(height: 12),
-            challengeProvider.isLoading 
-              ? const Center(child: Padding(
-                  padding: EdgeInsets.all(40.0),
-                  child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2),
-                ))
-              : activeChallenges.isEmpty
-                ? _buildEmptyState(
-                    icon: LucideIcons.zapOff,
-                    msg: 'No active challenges.\nStart one to keep your streak.',
-                    actionLabel: 'Browse Friends',
-                    onAction: () => navigationProvider.setIndex(1),
-                  )
-                : ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: activeChallenges.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 12),
-                    itemBuilder: (context, index) {
-                      return _buildChallengeCard(context, challenge: activeChallenges[index]);
-                    },
-                  ),
-            const SizedBox(height: 32),
-
-            _buildSectionTitle('RECENT ACTIVITY'),
-            const SizedBox(height: 16),
-            notificationProvider.isLoading && notificationProvider.notifications.isEmpty
-              ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-              : notificationProvider.notifications.isEmpty
-                ? Text('All caught up!', style: textTheme.bodyMedium)
-                : Container(
+          SliverPadding(
+            padding: const EdgeInsets.all(AppTheme.padding),
+            sliver: SliverList(
+              delegate: SliverChildListDelegate([
+                const SizedBox(height: 20),
+                _buildSectionTitle('RECENT ACTIVITY'),
+                const SizedBox(height: 16),
+                if (notificationProvider.isLoading && notificationProvider.notifications.isEmpty)
+                  const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
+                else if (notificationProvider.notifications.isEmpty)
+                  Text('All caught up!', style: textTheme.bodyMedium)
+                else
+                  Container(
                     decoration: BoxDecoration(
                       color: AppTheme.zinc950,
                       borderRadius: BorderRadius.circular(AppTheme.borderRadius),
@@ -182,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     ),
                     child: ListView.separated(
                       shrinkWrap: true,
+                      padding: EdgeInsets.zero,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: notificationProvider.notifications.length > 3 ? 3 : notificationProvider.notifications.length,
                       separatorBuilder: (_, __) => const Divider(color: AppTheme.zinc900, height: 1),
@@ -196,9 +223,11 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       },
                     ),
                   ),
-            const SizedBox(height: 120),
-          ],
-        ),
+                const SizedBox(height: 140),
+              ]),
+            ),
+          ),
+        ],
       ),
     );
   }

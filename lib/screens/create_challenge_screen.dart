@@ -21,6 +21,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   final TextEditingController _descController = TextEditingController();
   String _deadline = 'today';
   String _proofType = 'any';
+  bool _isLaunching = false;
 
   @override
   Widget build(BuildContext context) {
@@ -126,12 +127,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             ),
             child: CustomButton(
               text: 'Launch Challenge',
-              isLoading: context.watch<ChallengeProvider>().isLoading,
+              isLoading: _isLaunching,
               onPressed: () async {
-                if (widget.recipient == null) return;
+                if (widget.recipient == null || _isLaunching) return;
+                setState(() => _isLaunching = true);
+                
                 final challengeProvider = context.read<ChallengeProvider>();
-                if (challengeProvider.isLoading) return;
-
                 final success = await challengeProvider.createChallenge({
                   'recipientId': widget.recipient!.id,
                   'title': _titleController.text,
@@ -141,8 +142,13 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                       : DateTime.now().add(const Duration(days: 1)).toIso8601String(),
                   'proofType': _proofType,
                 });
+                
                 if (!context.mounted) return;
-                if (success) Navigator.of(context).pop();
+                if (success) {
+                  Navigator.of(context).pop();
+                } else {
+                  setState(() => _isLaunching = false);
+                }
               },
               backgroundColor: AppTheme.white,
               textColor: AppTheme.black,

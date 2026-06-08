@@ -37,7 +37,7 @@ exports.sendTruth = async (req, res, next) => {
       sender: req.user._id,
       type: 'truth_received',
       relatedId: truth._id,
-      message: `${req.user.name} sent you a Truth question`
+      message: `${req.user.name} sent a truth question`
     });
 
     res.status(201).json(truth);
@@ -79,7 +79,7 @@ exports.sendDare = async (req, res, next) => {
       sender: req.user._id,
       type: 'dare_received',
       relatedId: dare._id,
-      message: `${req.user.name} sent you a Dare: ${task}`
+      message: `${req.user.name} sent a dare task`
     });
 
     res.status(201).json(dare);
