@@ -64,6 +64,22 @@ exports.updateProfile = async (req, res, next) => {
   }
 };
 
+exports.updateFcmToken = async (req, res, next) => {
+  try {
+    const { fcmToken } = req.body;
+    const user = await User.findById(req.user._id);
+    if (user) {
+      user.fcmToken = fcmToken;
+      await user.save();
+      res.json({ message: 'FCM Token updated successfully' });
+    } else {
+      res.status(404).json({ message: 'User not found' });
+    }
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.searchUsers = async (req, res, next) => {
   try {
     const keyword = req.query.search ? {

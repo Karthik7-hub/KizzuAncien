@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PointTransaction = require('../models/PointTransaction');
 const { uploadImage } = require('../services/imageKitService');
+const { sendPushNotification } = require('../services/firebaseService');
 
 exports.createChallenge = async (req, res, next) => {
   try {
@@ -24,6 +25,17 @@ exports.createChallenge = async (req, res, next) => {
       relatedId: challenge._id,
       message: `${req.user.name} sent a challenge: ${title}`
     });
+
+    // Send Push Notification
+    const recipient = await User.findById(recipientId);
+    if (recipient && recipient.fcmToken) {
+      await sendPushNotification(
+        recipient.fcmToken,
+        'New Challenge Received',
+        `${req.user.name} challenged you: ${title}`,
+        { type: 'challenge_received', id: challenge._id.toString() }
+      );
+    }
 
     res.status(201).json(challenge);
   } catch (error) {
@@ -91,6 +103,17 @@ exports.submitProof = async (req, res, next) => {
       relatedId: submission._id,
       message: `${req.user.name} submitted verification for ${challenge.title}`
     });
+
+    // Send Push Notification
+    const creator = await User.findById(challenge.creator);
+    if (creator && creator.fcmToken) {
+      await sendPushNotification(
+        creator.fcmToken,
+        'Proof Submitted',
+        `${req.user.name} submitted verification for: ${challenge.title}`,
+        { type: 'submission_received', id: submission._id.toString() }
+      );
+    }
 
     res.status(201).json(submission);
   } catch (error) {
@@ -167,6 +190,19 @@ async function handleReview(submission, status, req, res) {
       ? `Verification for "${challenge.title}" approved`
       : `Verification for "${challenge.title}" declined`
   });
+
+  // Send Push Notification
+  const recipient = await User.findById(challenge.recipient);
+  if (recipient && recipient.fcmToken) {
+    await sendPushNotification(
+      recipient.fcmToken,
+      status === 'approved' ? 'Challenge Approved' : 'Challenge Declined',
+      status === 'approved'
+        ? `Your verification for "${challenge.title}" was approved.`
+        : `Your verification for "${challenge.title}" was declined.`,
+      { type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected', id: challenge._id.toString() }
+    );
+  }
 
   res.json({ submission, challenge });
 }

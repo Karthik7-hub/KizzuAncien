@@ -1,6 +1,7 @@
 const Friend = require('../models/Friend');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
+const { sendPushNotification } = require('../services/firebaseService');
 
 exports.sendRequest = async (req, res, next) => {
   try {
@@ -33,6 +34,17 @@ exports.sendRequest = async (req, res, next) => {
       message: `${req.user.name} sent a friend request`
     });
 
+    // Send Push Notification
+    const recipient = await User.findById(recipientId);
+    if (recipient && recipient.fcmToken) {
+      await sendPushNotification(
+        recipient.fcmToken,
+        'New Friend Request',
+        `${req.user.name} sent a friend request`,
+        { type: 'friend_request', id: friendRequest._id.toString() }
+      );
+    }
+
     res.status(201).json(friendRequest);
   } catch (error) {
     next(error);
@@ -58,6 +70,17 @@ exports.respondToRequest = async (req, res, next) => {
         type: 'friend_request_accepted',
         message: `${req.user.name} accepted friend request`
       });
+
+      // Send Push Notification
+      const requester = await User.findById(friendRequest.requester);
+      if (requester && requester.fcmToken) {
+        await sendPushNotification(
+          requester.fcmToken,
+          'Friend Request Accepted',
+          `${req.user.name} accepted your friend request`,
+          { type: 'friend_request_accepted', id: friendRequest._id.toString() }
+        );
+      }
     }
 
     res.json(friendRequest);

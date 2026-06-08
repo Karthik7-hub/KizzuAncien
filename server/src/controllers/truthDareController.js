@@ -3,6 +3,7 @@ const Dare = require('../models/Dare');
 const User = require('../models/User');
 const Notification = require('../models/Notification');
 const PointTransaction = require('../models/PointTransaction');
+const { sendPushNotification } = require('../services/firebaseService');
 
 exports.sendTruth = async (req, res, next) => {
   try {
@@ -39,6 +40,17 @@ exports.sendTruth = async (req, res, next) => {
       relatedId: truth._id,
       message: `${req.user.name} sent a truth question`
     });
+
+    // Send Push Notification
+    const recipient = await User.findById(recipientId);
+    if (recipient && recipient.fcmToken) {
+      await sendPushNotification(
+        recipient.fcmToken,
+        'Truth Question Received',
+        `${req.user.name} sent you a truth question`,
+        { type: 'truth_received', id: truth._id.toString() }
+      );
+    }
 
     res.status(201).json(truth);
   } catch (error) {
@@ -81,6 +93,17 @@ exports.sendDare = async (req, res, next) => {
       relatedId: dare._id,
       message: `${req.user.name} sent a dare task`
     });
+
+    // Send Push Notification
+    const recipient = await User.findById(recipientId);
+    if (recipient && recipient.fcmToken) {
+      await sendPushNotification(
+        recipient.fcmToken,
+        'Dare Task Received',
+        `${req.user.name} sent you a dare task`,
+        { type: 'dare_received', id: dare._id.toString() }
+      );
+    }
 
     res.status(201).json(dare);
   } catch (error) {

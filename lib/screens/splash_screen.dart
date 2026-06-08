@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import 'package:kizzu_ancien/services/notification_service.dart';
 import 'auth_screen.dart';
 import 'main_screen.dart';
 
@@ -49,6 +50,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     ]);
 
     final isLoggedIn = await checkAuthFuture;
+    
+    if (isLoggedIn) {
+      await NotificationService.setupFcmToken();
+    }
 
     if (mounted) {
       Navigator.of(context).pushReplacement(

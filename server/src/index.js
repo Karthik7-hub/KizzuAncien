@@ -13,6 +13,7 @@ const friendRoutes = require('./routes/friendRoutes');
 const challengeRoutes = require('./routes/challengeRoutes');
 const truthDareRoutes = require('./routes/truthDareRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const reminderRoutes = require('./routes/reminderRoutes');
 const { errorHandler } = require('./middleware/errorMiddleware');
 
 const app = express();
@@ -53,6 +54,7 @@ app.use('/api/friends', friendRoutes);
 app.use('/api/challenges', challengeRoutes);
 app.use('/api/truth-dare', truthDareRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/reminders', reminderRoutes);
 
 app.get('/', (req, res) => res.json({ status: 'KizzuAncien API' }));
 app.get('/health', (req, res) => res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() }));

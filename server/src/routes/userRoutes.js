@@ -1,10 +1,11 @@
 const express = require('express');
-const { getProfile, updateProfile, searchUsers } = require('../controllers/userController');
+const { getProfile, updateProfile, searchUsers, updateFcmToken } = require('../controllers/userController');
 const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();
 
 router.get('/profile', protect, getProfile);
 router.put('/profile', protect, updateProfile);
+router.put('/fcm-token', protect, updateFcmToken);
 router.get('/search', protect, searchUsers);
 
 module.exports = router;

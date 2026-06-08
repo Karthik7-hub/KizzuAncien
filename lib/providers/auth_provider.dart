@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 
@@ -31,6 +32,7 @@ class AuthProvider extends ChangeNotifier {
         _user = User.fromJson(response.data['user']);
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
+        await NotificationService.setupFcmToken();
       }
       
       _isLoading = false;
@@ -67,6 +69,7 @@ class AuthProvider extends ChangeNotifier {
       _user = User.fromJson(response.data['user']);
       await _storage.write(key: 'accessToken', value: response.data['accessToken']);
       await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
+      await NotificationService.setupFcmToken();
       
       _isLoading = false;
       notifyListeners();
@@ -104,6 +107,7 @@ class AuthProvider extends ChangeNotifier {
         _user = User.fromJson(response.data['user']);
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
+        await NotificationService.setupFcmToken();
       }
       
       _isLoading = false;
@@ -154,6 +158,11 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    try {
+      await _apiService.dio.put('/users/fcm-token', data: {'fcmToken': null});
+    } catch (e) {
+      debugPrint('⚠️ Could not clear FCM Token on server');
+    }
     await _storage.deleteAll();
     _user = null;
     notifyListeners();

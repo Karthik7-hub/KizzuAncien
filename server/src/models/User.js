@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
   lastCompletedDate: { type: Date },
+  fcmToken: { type: String, default: null },
 }, { timestamps: true });
 
 userSchema.index({ username: 1 });
