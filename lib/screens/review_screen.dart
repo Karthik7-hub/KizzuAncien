@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
@@ -17,7 +18,9 @@ class ReviewScreen extends StatefulWidget {
 
 class _ReviewScreenState extends State<ReviewScreen> {
   Map<String, dynamic>? _submission;
-  bool _isLoading = true;
+  bool _isDataLoading = true;
+  bool _isVerifying = false;
+  bool _isDeclining = false;
 
   @override
   void initState() {
@@ -30,7 +33,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
     if (mounted) {
       setState(() {
         _submission = sub;
-        _isLoading = false;
+        _isDataLoading = false;
       });
     }
   }
@@ -52,7 +55,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
         ),
         centerTitle: true,
       ),
-      body: _isLoading
+      body: _isDataLoading
           ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
           : Column(
               children: [
@@ -104,15 +107,25 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(24),
-                              border: Border.all(color: AppTheme.zinc800),
-                              color: AppTheme.zinc900,
+                              border: Border.all(color: AppTheme.zinc900),
+                              color: AppTheme.zinc950,
                             ),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(24),
-                              child: Image.network(
-                                _submission!['proofUrl'],
+                              child: CachedNetworkImage(
+                                imageUrl: _submission!['proofUrl'],
                                 width: double.infinity,
                                 fit: BoxFit.cover,
+                                placeholder: (context, url) => Container(
+                                  height: 200,
+                                  color: AppTheme.zinc950,
+                                  child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+                                ),
+                                errorWidget: (context, url, error) => Container(
+                                  height: 100,
+                                  color: AppTheme.zinc950,
+                                  child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
+                                ),
                               ),
                             ),
                           ),
@@ -147,11 +160,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Decline',
-                          isLoading: context.watch<ChallengeProvider>().isLoading,
-                          onPressed: () async {
+                          isLoading: _isDeclining,
+                          onPressed: (_isVerifying || _isDeclining) ? null : () async {
+                            setState(() => _isDeclining = true);
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'rejected');
                             if (!context.mounted) return;
                             if (success) Navigator.of(context).pop();
+                            else setState(() => _isDeclining = false);
                           },
                           backgroundColor: AppTheme.zinc900,
                           textColor: AppTheme.white,
@@ -163,11 +178,13 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Verify',
-                          isLoading: context.watch<ChallengeProvider>().isLoading,
-                          onPressed: () async {
+                          isLoading: _isVerifying,
+                          onPressed: (_isVerifying || _isDeclining) ? null : () async {
+                            setState(() => _isVerifying = true);
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'approved');
                             if (!context.mounted) return;
                             if (success) Navigator.of(context).pop();
+                            else setState(() => _isVerifying = false);
                           },
                           backgroundColor: AppTheme.white,
                           textColor: AppTheme.black,

@@ -24,11 +24,14 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  bool _isProcessing = false;
+  bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
+
+  bool get _isAnyLoading => _isEmailLoading || _isGoogleLoading;
 
   void _handleLogin() async {
-    if (_isProcessing) return;
-    setState(() => _isProcessing = true);
+    if (_isAnyLoading) return;
+    setState(() => _isEmailLoading = true);
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
@@ -54,18 +57,17 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isEmailLoading = false);
     }
   }
 
   void _handleGoogleLogin() async {
-    if (_isProcessing) return;
-    setState(() => _isProcessing = true);
+    if (_isAnyLoading) return;
+    setState(() => _isGoogleLoading = true);
 
     debugPrint('🚀 Starting Google Login...');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
-      debugPrint('🔑 Using serverClientId: ${AppConstants.googleServerClientId}');
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: AppConstants.googleServerClientId,
       );
@@ -73,8 +75,7 @@ class _AuthScreenState extends State<AuthScreen> {
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
       
       if (googleUser == null) {
-        debugPrint('⚠️ Google Login Cancelled');
-        setState(() => _isProcessing = false);
+        if (mounted) setState(() => _isGoogleLoading = false);
         return;
       }
 
@@ -84,11 +85,9 @@ class _AuthScreenState extends State<AuthScreen> {
         'name': googleUser.displayName,
       };
 
-      // Call googleLogin directly. The backend will tell us if user exists.
       final result = await authProvider.googleLogin(googleData);
       
       if (result['exists'] == true) {
-        // EXISTING USER: Login successful
         if (mounted) {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (context) => const MainScreen()),
@@ -96,7 +95,6 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
       } else {
-        // NEW USER: Needs to complete profile
         if (mounted) {
           Navigator.push(
             context,
@@ -104,12 +102,11 @@ class _AuthScreenState extends State<AuthScreen> {
               builder: (_) => CompleteProfileScreen(googleData: googleData),
             ),
           ).then((_) {
-            if (mounted) setState(() => _isProcessing = false);
+            if (mounted) setState(() => _isGoogleLoading = false);
           });
         }
       }
     } catch (e) {
-      debugPrint('❌ GOOGLE LOGIN ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -120,19 +117,12 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
     } finally {
-      // Note: We don't set _isProcessing = false here if we navigated away 
-      // but the .then() and error catch handle it.
-      if (mounted && !Navigator.of(context).canPop()) {
-         // This is a bit tricky if we pushed a screen.
-      }
-      // Simpler:
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isGoogleLoading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.watch<AuthProvider>().isLoading || _isProcessing;
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -195,16 +185,16 @@ class _AuthScreenState extends State<AuthScreen> {
                 children: [
                   CustomButton(
                     text: 'Sign In',
-                    onPressed: _handleLogin,
+                    onPressed: _isAnyLoading ? null : _handleLogin,
                     backgroundColor: AppTheme.white,
                     textColor: AppTheme.black,
                     icon: const Icon(LucideIcons.logIn, size: 18),
-                    isLoading: isLoading,
+                    isLoading: _isEmailLoading,
                   ),
                   const SizedBox(height: 12),
                   CustomButton(
                     text: 'Continue with Google',
-                    onPressed: _handleGoogleLogin,
+                    onPressed: _isAnyLoading ? null : _handleGoogleLogin,
                     backgroundColor: AppTheme.zinc950,
                     textColor: AppTheme.white,
                     borderColor: AppTheme.zinc900,
@@ -214,14 +204,14 @@ class _AuthScreenState extends State<AuthScreen> {
                       height: 18,
                       placeholderBuilder: (context) => const Icon(LucideIcons.globe, size: 18),
                     ),
-                    isLoading: isLoading,
+                    isLoading: _isGoogleLoading,
                   ),
                 ],
               ),
               const SizedBox(height: 24),
               Center(
                 child: TextButton(
-                  onPressed: () {
+                  onPressed: _isAnyLoading ? null : () {
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => const SignUpScreen()),
                     );

@@ -18,6 +18,9 @@ const { errorHandler } = require('./middleware/errorMiddleware');
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
 
+// Trust proxy for Vercel and other reverse proxies
+app.set('trust proxy', 1);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,

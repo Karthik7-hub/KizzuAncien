@@ -19,6 +19,10 @@ class FriendsScreen extends StatefulWidget {
 class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
   Timer? _debounce;
+  final Map<String, bool> _loadingStates = {};
+
+  bool _isUserLoading(String id) => _loadingStates[id] ?? false;
+  bool get _isAnyUserLoading => _loadingStates.values.any((v) => v);
 
   @override
   bool get wantKeepAlive => true;
@@ -303,39 +307,58 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Widget _buildActions(User user, String type, String? requestId) {
     final provider = context.read<FriendProvider>();
-    final isLoading = context.watch<FriendProvider>().isLoading;
+    final isProcessing = _isUserLoading(user.id) || (requestId != null && _isUserLoading(requestId));
+    final isAnyLoading = _isAnyUserLoading;
 
     if (type == 'search') {
       return IconButton(
-        icon: isLoading 
+        icon: isProcessing 
           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.white))
           : const Icon(LucideIcons.userPlus, color: AppTheme.white, size: 20),
         style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
-        onPressed: isLoading ? null : () => provider.sendFriendRequest(user.id),
+        onPressed: isAnyLoading ? null : () async {
+          setState(() => _loadingStates[user.id] = true);
+          await provider.sendFriendRequest(user.id);
+          if (mounted) setState(() => _loadingStates[user.id] = false);
+        },
       );
     } else if (type == 'incoming') {
       return Row(
         children: [
           IconButton(
-            icon: isLoading 
+            icon: isProcessing 
               ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.black))
               : const Icon(LucideIcons.check, color: AppTheme.black, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.white),
-            onPressed: isLoading ? null : () => provider.respondToRequest(requestId!, 'accepted'),
+            onPressed: isAnyLoading ? null : () async {
+              setState(() => _loadingStates[requestId!] = true);
+              await provider.respondToRequest(requestId, 'accepted');
+              if (mounted) setState(() => _loadingStates[requestId] = false);
+            },
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(LucideIcons.x, color: AppTheme.white, size: 18),
+            icon: isProcessing 
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.white))
+              : const Icon(LucideIcons.x, color: AppTheme.white, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
-            onPressed: isLoading ? null : () => provider.respondToRequest(requestId!, 'rejected'),
+            onPressed: isAnyLoading ? null : () async {
+              setState(() => _loadingStates[requestId!] = true);
+              await provider.respondToRequest(requestId, 'rejected');
+              if (mounted) setState(() => _loadingStates[requestId] = false);
+            },
           ),
         ],
       );
     } else if (type == 'outgoing') {
       return TextButton(
-        onPressed: isLoading ? null : () => provider.cancelRequest(requestId!),
+        onPressed: isAnyLoading ? null : () async {
+          setState(() => _loadingStates[requestId!] = true);
+          await provider.cancelRequest(requestId);
+          if (mounted) setState(() => _loadingStates[requestId] = false);
+        },
         child: Text(
-          isLoading ? '...' : 'Cancel', 
+          isProcessing ? '...' : 'Cancel', 
           style: const TextStyle(color: AppTheme.zinc600, fontSize: 13, fontWeight: FontWeight.w600)
         ),
       );
@@ -343,13 +366,13 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
       return Row(
         children: [
           IconButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(recipient: user))),
+            onPressed: isAnyLoading ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(recipient: user))),
             icon: const Icon(LucideIcons.zap, color: Colors.amber, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.zinc900, side: const BorderSide(color: AppTheme.zinc800)),
           ),
           const SizedBox(width: 8),
           ElevatedButton(
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: user))),
+            onPressed: isAnyLoading ? null : () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: user))),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.white,
               foregroundColor: AppTheme.black,
