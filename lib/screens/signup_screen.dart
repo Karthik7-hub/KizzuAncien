@@ -20,11 +20,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   String _gender = 'male';
+  bool _isLoading = false;
 
   void _handleSignUp() async {
+    if (_isLoading) return;
+    setState(() => _isLoading = true);
+    
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    if (authProvider.isLoading) return;
-
     try {
       final success = await authProvider.register(
         _nameController.text.trim(),
@@ -39,9 +41,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
           MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
         );
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
        if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(e.toString().replaceAll('Exception: ', '')),
@@ -56,8 +61,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.watch<AuthProvider>().isLoading;
-
     return Scaffold(
       backgroundColor: AppTheme.black,
       appBar: AppBar(
@@ -130,11 +133,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 32),
               CustomButton(
                 text: 'Create Account',
-                onPressed: _handleSignUp,
+                onPressed: _isLoading ? null : _handleSignUp,
                 backgroundColor: AppTheme.white,
                 textColor: AppTheme.black,
                 icon: const Icon(LucideIcons.userPlus, size: 20),
-                isLoading: isLoading,
+                isLoading: _isLoading,
               ),
               const SizedBox(height: 32),
               Center(

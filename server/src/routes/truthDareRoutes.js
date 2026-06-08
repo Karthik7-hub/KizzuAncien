@@ -1,3 +1,4 @@
+const express = require('express');
 const { sendTruth, sendDare, getTruthsAndDares, answerTruth, completeDare } = require('../controllers/truthDareController');
 const { protect } = require('../middleware/authMiddleware');
 const router = express.Router();

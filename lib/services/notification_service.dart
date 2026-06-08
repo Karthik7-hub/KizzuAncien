@@ -112,7 +112,7 @@ class NotificationService {
           importance: Importance.high,
           priority: Priority.high,
           category: AndroidNotificationCategory.status,
-          icon: 'ic_notification',
+          icon: '@mipmap/ic_launcher',
           colorized: false,
           showWhen: true,
           enableVibration: true,
