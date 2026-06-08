@@ -60,46 +60,62 @@ class FriendProvider extends ChangeNotifier {
   }
 
   Future<bool> sendFriendRequest(String recipientId) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.post('/friends/request', data: {'recipientId': recipientId});
       await fetchFriends();
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<bool> respondToRequest(String requestId, String status) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.post('/friends/respond', data: {'requestId': requestId, 'status': status});
       await fetchFriends();
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<bool> removeFriend(String friendId) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.delete('/friends/$friendId');
       await fetchFriends();
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
   Future<bool> cancelRequest(String requestId) async {
-    // In our backend, cancel/reject can be the same as deleting the relationship record
-    // We'll reuse the delete friend endpoint or create a specific one.
-    // Let's check what delete friend does. It finds by requester AND recipient.
-    // For cancel request, we have the requestId (the _id of the Friend document).
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.delete('/friends/request/$requestId');
       await fetchFriends();
       return true;
     } catch (e) {
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

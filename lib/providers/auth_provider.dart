@@ -162,15 +162,40 @@ class AuthProvider extends ChangeNotifier {
   Future<bool> checkAuth() async {
     final token = await _storage.read(key: 'accessToken');
     if (token == null) return false;
+    
     try {
       final response = await _apiService.dio.get('/users/profile');
-      // getProfile returns { user, stats }
       _user = User.fromJson(response.data['user']);
       _stats = response.data['stats'] ?? {};
       notifyListeners();
       return true;
+    } on DioException catch (e) {
+      debugPrint('🔍 checkAuth Error: ${e.type} - ${e.response?.statusCode}');
+      
+      // If it's a 401, the interceptor should have already tried to refresh.
+      // If it's still 401, then we really are logged out.
+      if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
+        await logout();
+        return false;
+      }
+      
+      // For network errors (timeout, connection refused), we DON'T log out.
+      // We assume the user is still "logged in" but offline.
+      // We check if we have a stored user (optional: we could store user in local storage too)
+      if (e.type == DioExceptionType.connectionTimeout || 
+          e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.connectionError) {
+        
+        // If we can't reach the server, but we have a token, 
+        // we might want to let them in anyway if we had cached the user.
+        // For now, if we have a token, we return true to let them to MainScreen
+        // where they will see empty states or cached data.
+        return true; 
+      }
+      
+      return false;
     } catch (e) {
-      // Token might be invalid or expired
+      debugPrint('🔍 checkAuth Unexpected Error: $e');
       return false;
     }
   }

@@ -147,6 +147,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Decline',
+                          isLoading: context.watch<ChallengeProvider>().isLoading,
                           onPressed: () async {
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'rejected');
                             if (!context.mounted) return;
@@ -162,6 +163,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
                       Expanded(
                         child: CustomButton(
                           text: 'Verify',
+                          isLoading: context.watch<ChallengeProvider>().isLoading,
                           onPressed: () async {
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'approved');
                             if (!context.mounted) return;

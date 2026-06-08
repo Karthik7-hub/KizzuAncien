@@ -2,8 +2,9 @@ const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
 const generateTokens = (id) => {
-  const accessToken = jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, { expiresIn: '15m' });
-  const refreshToken = jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '7d' });
+  // Access token valid for 1 day, Refresh token valid for 30 days
+  const accessToken = jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, { expiresIn: '1d' });
+  const refreshToken = jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
   return { accessToken, refreshToken };
 };
 
@@ -102,8 +103,9 @@ exports.refreshToken = async (req, res, next) => {
 
     jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
       if (err) return res.status(403).json({ message: 'Refresh token is invalid' });
-      const { accessToken } = generateTokens(decoded.id);
-      res.json({ accessToken });
+
+      const tokens = generateTokens(decoded.id);
+      res.json(tokens);
     });
   } catch (error) {
     next(error);

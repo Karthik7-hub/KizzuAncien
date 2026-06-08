@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -15,14 +16,44 @@ class FriendsScreen extends StatefulWidget {
   State<FriendsScreen> createState() => _FriendsScreenState();
 }
 
-class _FriendsScreenState extends State<FriendsScreen> {
+class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveClientMixin {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<FriendProvider>().fetchFriends();
+      final friendProvider = context.read<FriendProvider>();
+      if (friendProvider.friends.isEmpty && 
+          friendProvider.incomingRequests.isEmpty && 
+          friendProvider.outgoingRequests.isEmpty) {
+        friendProvider.fetchFriends();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String query) {
+    if (query.isEmpty) {
+      _debounce?.cancel();
+      context.read<FriendProvider>().searchUsers('');
+      return;
+    }
+    if (_debounce?.isActive ?? false) _debounce!.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      if (mounted) {
+        context.read<FriendProvider>().searchUsers(query);
+      }
     });
   }
 
@@ -32,6 +63,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final friendProvider = context.watch<FriendProvider>();
 
     return Scaffold(
@@ -61,7 +93,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                     const SizedBox(height: 20),
                     TextField(
                       controller: _searchController,
-                      onChanged: (val) => friendProvider.searchUsers(val),
+                      onChanged: _onSearchChanged,
                       style: const TextStyle(color: AppTheme.white),
                       decoration: InputDecoration(
                         hintText: 'Find friends by name...',
@@ -207,28 +239,23 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Widget _buildSectionHeader(String title, int count) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 12),
       child: Row(
         children: [
           Text(
             title,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.zinc500,
-              letterSpacing: 1.5,
-            ),
+            style: Theme.of(context).textTheme.labelSmall,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: AppTheme.zinc900,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(6),
             ),
             child: Text(
               count.toString(),
-              style: const TextStyle(fontSize: 10, color: AppTheme.zinc400, fontWeight: FontWeight.bold),
+              style: const TextStyle(fontSize: 10, color: AppTheme.zinc500, fontWeight: FontWeight.bold),
             ),
           ),
         ],
@@ -238,17 +265,17 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Widget _buildUserItem(User user, {required String type, String? requestId}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.zinc900.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.zinc800),
+        color: AppTheme.zinc950,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        border: Border.all(color: AppTheme.zinc900),
       ),
       child: Row(
         children: [
-          AvatarWidget(user: user, size: 52),
-          const SizedBox(width: 16),
+          AvatarWidget(user: user, size: 48),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -256,7 +283,7 @@ class _FriendsScreenState extends State<FriendsScreen> {
                 Text(
                   user.name,
                   style: const TextStyle(
-                    fontSize: 16,
+                    fontSize: 15,
                     fontWeight: FontWeight.bold,
                     color: AppTheme.white,
                   ),
@@ -276,33 +303,41 @@ class _FriendsScreenState extends State<FriendsScreen> {
 
   Widget _buildActions(User user, String type, String? requestId) {
     final provider = context.read<FriendProvider>();
+    final isLoading = context.watch<FriendProvider>().isLoading;
 
     if (type == 'search') {
       return IconButton(
-        icon: const Icon(LucideIcons.userPlus, color: AppTheme.white, size: 20),
+        icon: isLoading 
+          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.white))
+          : const Icon(LucideIcons.userPlus, color: AppTheme.white, size: 20),
         style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
-        onPressed: () => provider.sendFriendRequest(user.id),
+        onPressed: isLoading ? null : () => provider.sendFriendRequest(user.id),
       );
     } else if (type == 'incoming') {
       return Row(
         children: [
           IconButton(
-            icon: const Icon(LucideIcons.check, color: AppTheme.black, size: 18),
+            icon: isLoading 
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.black))
+              : const Icon(LucideIcons.check, color: AppTheme.black, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.white),
-            onPressed: () => provider.respondToRequest(requestId!, 'accepted'),
+            onPressed: isLoading ? null : () => provider.respondToRequest(requestId!, 'accepted'),
           ),
           const SizedBox(width: 8),
           IconButton(
             icon: const Icon(LucideIcons.x, color: AppTheme.white, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
-            onPressed: () => provider.respondToRequest(requestId!, 'rejected'),
+            onPressed: isLoading ? null : () => provider.respondToRequest(requestId!, 'rejected'),
           ),
         ],
       );
     } else if (type == 'outgoing') {
       return TextButton(
-        onPressed: () => provider.cancelRequest(requestId!),
-        child: const Text('Cancel', style: TextStyle(color: AppTheme.zinc600, fontSize: 13, fontWeight: FontWeight.w600)),
+        onPressed: isLoading ? null : () => provider.cancelRequest(requestId!),
+        child: Text(
+          isLoading ? '...' : 'Cancel', 
+          style: const TextStyle(color: AppTheme.zinc600, fontSize: 13, fontWeight: FontWeight.w600)
+        ),
       );
     } else {
       return Row(

@@ -38,8 +38,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   Future<void> _initializeApp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    await Future.delayed(const Duration(milliseconds: 2500));
-    final isLoggedIn = await authProvider.checkAuth();
+    
+    // We start checkAuth immediately while the animation plays
+    final checkAuthFuture = authProvider.checkAuth();
+    
+    // Wait for at least 800ms so the animation is visible, but no more than necessary
+    await Future.wait([
+      checkAuthFuture,
+      Future.delayed(const Duration(milliseconds: 800)),
+    ]);
+
+    final isLoggedIn = await checkAuthFuture;
 
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -49,7 +58,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(opacity: animation, child: child);
           },
-          transitionDuration: const Duration(milliseconds: 800),
+          transitionDuration: const Duration(milliseconds: 400),
         ),
       );
     }

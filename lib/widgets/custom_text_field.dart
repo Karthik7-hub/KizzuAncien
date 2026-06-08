@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:kizzu_ancien/theme/app_theme.dart';
+import '../theme/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
   final String hintText;
@@ -24,24 +24,25 @@ class CustomTextField extends StatelessWidget {
       obscureText: obscureText,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: const TextStyle(color: AppTheme.white),
+      style: const TextStyle(color: AppTheme.white, fontSize: 16),
+      cursorColor: AppTheme.white,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: AppTheme.zinc500),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        hintStyle: const TextStyle(color: AppTheme.zinc600, fontSize: 16),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         filled: true,
-        fillColor: AppTheme.zinc900,
+        fillColor: AppTheme.zinc950,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          borderSide: const BorderSide(color: AppTheme.zinc900),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          borderSide: const BorderSide(color: AppTheme.zinc900),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
-          borderSide: const BorderSide(color: AppTheme.zinc700, width: 1),
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          borderSide: const BorderSide(color: AppTheme.white, width: 1),
         ),
       ),
     );

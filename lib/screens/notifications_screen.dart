@@ -77,26 +77,26 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           );
                         },
                         child: Container(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: const EdgeInsets.only(bottom: 8),
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: n.read ? AppTheme.zinc900.withValues(alpha: 0.3) : AppTheme.zinc900,
-                            borderRadius: BorderRadius.circular(20),
+                            color: n.read ? Colors.transparent : AppTheme.zinc950,
+                            borderRadius: BorderRadius.circular(AppTheme.borderRadius),
                             border: Border.all(
-                              color: n.read ? AppTheme.zinc800.withValues(alpha: 0.5) : AppTheme.zinc800,
+                              color: n.read ? AppTheme.zinc900.withValues(alpha: 0.5) : AppTheme.zinc900,
                             ),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               if (n.sender != null)
-                                AvatarWidget(user: n.sender!, size: 40)
+                                AvatarWidget(user: n.sender!, size: 36)
                               else
                                 Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc800),
-                                  child: const Icon(LucideIcons.bell, size: 18, color: AppTheme.zinc500),
+                                  width: 36,
+                                  height: 36,
+                                  decoration: const BoxDecoration(shape: BoxShape.circle, color: AppTheme.zinc900),
+                                  child: const Icon(LucideIcons.bell, size: 16, color: AppTheme.zinc500),
                                 ),
                               const SizedBox(width: 12),
                               Expanded(
@@ -108,24 +108,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                       style: TextStyle(
                                         color: AppTheme.white,
                                         fontSize: 14,
-                                        fontWeight: n.read ? FontWeight.normal : FontWeight.w500,
+                                        fontWeight: n.read ? FontWeight.normal : FontWeight.bold,
                                       ),
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
                                       timeago.format(n.createdAt),
-                                      style: const TextStyle(color: AppTheme.zinc600, fontSize: 12),
+                                      style: const TextStyle(color: AppTheme.zinc600, fontSize: 11),
                                     ),
                                   ],
                                 ),
                               ),
                               if (!n.read)
                                 Container(
-                                  width: 8,
-                                  height: 8,
+                                  width: 6,
+                                  height: 6,
                                   margin: const EdgeInsets.only(top: 4, left: 8),
                                   decoration: const BoxDecoration(
-                                    color: Colors.blueAccent,
+                                    color: Colors.white,
                                     shape: BoxShape.circle,
                                   ),
                                 ),

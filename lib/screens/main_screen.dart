@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:provider/provider.dart';
@@ -21,26 +22,47 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
+  late PageController _pageController;
+  bool _isSwitching = false;
+  late NavigationProvider _navigationProvider;
+
   final List<Widget> _screens = const [
     HomeScreen(),
     FriendsScreen(),
     ProfileScreen(),
   ];
 
-  void _onTabTapped(int index) {
-    final navigationProvider = context.read<NavigationProvider>();
-    if (navigationProvider.currentIndex != index) {
-      navigationProvider.setIndex(index);
-      
-      if (index == 0) {
-        context.read<ChallengeProvider>().fetchChallenges();
-        context.read<NotificationProvider>().fetchNotifications();
-      } else if (index == 1) {
-        context.read<FriendProvider>().fetchFriends();
-      } else if (index == 2) {
-        context.read<AuthProvider>().checkAuth();
+  @override
+  void initState() {
+    super.initState();
+    _navigationProvider = context.read<NavigationProvider>();
+    _pageController = PageController(initialPage: _navigationProvider.currentIndex);
+    _navigationProvider.addListener(_handleNavigationChange);
+  }
+
+  @override
+  void dispose() {
+    _navigationProvider.removeListener(_handleNavigationChange);
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _handleNavigationChange() {
+    if (_pageController.hasClients) {
+      final targetPage = _navigationProvider.currentIndex;
+      if (_pageController.page?.round() != targetPage) {
+        _pageController.animateToPage(
+          targetPage,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOutCubic,
+        );
       }
     }
+  }
+
+  void _onTabTapped(int index) {
+    if (_navigationProvider.currentIndex == index) return;
+    _navigationProvider.setIndex(index);
   }
 
   @override
@@ -54,14 +76,15 @@ class _MainScreenState extends State<MainScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.black,
         elevation: 0,
+        centerTitle: false,
         title: Row(
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: SvgPicture.asset(
                 'assets/logo.svg',
-                width: 32,
-                height: 32,
+                width: 28,
+                height: 28,
               ),
             ),
             const SizedBox(width: 12),
@@ -69,7 +92,7 @@ class _MainScreenState extends State<MainScreen> {
               'KizzuAncien',
               style: TextStyle(
                 color: AppTheme.white,
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
               ),
@@ -78,9 +101,10 @@ class _MainScreenState extends State<MainScreen> {
         ),
         actions: [
           Stack(
+            alignment: Alignment.center,
             children: [
               IconButton(
-                icon: const Icon(LucideIcons.bell, color: AppTheme.white),
+                icon: const Icon(LucideIcons.bell, color: AppTheme.white, size: 22),
                 onPressed: () {
                   Navigator.push(
                     context,
@@ -106,43 +130,48 @@ class _MainScreenState extends State<MainScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        transitionBuilder: (Widget child, Animation<double> animation) {
-          return FadeTransition(opacity: animation, child: child);
+      body: PageView(
+        controller: _pageController,
+        physics: const BouncingScrollPhysics(), // Enable smooth dragging
+        onPageChanged: (index) {
+          if (_navigationProvider.currentIndex != index) {
+            _navigationProvider.setIndex(index);
+          }
         },
-        child: _screens[navigationProvider.currentIndex],
+        children: _screens,
       ),
       bottomNavigationBar: SafeArea(
         child: Container(
-          height: 70,
-          margin: const EdgeInsets.fromLTRB(24, 0, 24, 20),
-          decoration: BoxDecoration(
-            color: AppTheme.zinc900.withValues(alpha: 0.8),
-            borderRadius: BorderRadius.circular(35),
-            border: Border.all(color: AppTheme.zinc800, width: 1),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+          height: 64,
+          margin: const EdgeInsets.fromLTRB(40, 0, 40, 20),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(32),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                decoration: BoxDecoration(
+                  color: AppTheme.zinc900.withValues(alpha: 0.7),
+                  borderRadius: BorderRadius.circular(32),
+                  border: Border.all(color: AppTheme.white.withValues(alpha: 0.1), width: 1),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildNavItem(0, LucideIcons.home),
+                    _buildNavItem(1, LucideIcons.users),
+                    _buildNavItem(2, LucideIcons.user),
+                  ],
+                ),
               ),
-            ],
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(0, LucideIcons.home, 'Home'),
-              _buildNavItem(1, LucideIcons.users, 'Friends'),
-              _buildNavItem(2, LucideIcons.user, 'Profile'),
-            ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, String label) {
+  Widget _buildNavItem(int index, IconData icon) {
     final navigationProvider = context.watch<NavigationProvider>();
     final isSelected = navigationProvider.currentIndex == index;
 
@@ -150,32 +179,18 @@ class _MainScreenState extends State<MainScreen> {
       onTap: () => _onTabTapped(index),
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        duration: const Duration(milliseconds: 250),
+        curve: Curves.easeOutCubic,
+        width: 50,
+        height: 50,
         decoration: BoxDecoration(
           color: isSelected ? AppTheme.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(25),
+          shape: BoxShape.circle,
         ),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? AppTheme.black : AppTheme.zinc500,
-              size: 20,
-            ),
-            if (isSelected) ...[
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: const TextStyle(
-                  color: AppTheme.black,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ],
+        child: Icon(
+          icon,
+          color: isSelected ? AppTheme.black : AppTheme.zinc500,
+          size: 22,
         ),
       ),
     );

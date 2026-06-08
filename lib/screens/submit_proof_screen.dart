@@ -137,26 +137,23 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            child: _isSubmitting
-                ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                : CustomButton(
-                    text: 'Submit Verification',
-                    onPressed: () async {
-                      setState(() => _isSubmitting = true);
-                      final success = await context.read<ChallengeProvider>().submitProof(
-                        widget.challenge.id,
-                        proofText: _textController.text,
-                        proofType: widget.challenge.proofType,
-                        file: _imageFile,
-                      );
-                      if (!context.mounted) return;
-                      setState(() => _isSubmitting = false);
-                      if (success) Navigator.of(context).pop();
-                    },
-                    backgroundColor: AppTheme.white,
-                    textColor: AppTheme.black,
-                    icon: const Icon(LucideIcons.checkCircle2, size: 20),
-                  ),
+            child: CustomButton(
+              text: 'Submit Verification',
+              isLoading: context.watch<ChallengeProvider>().isLoading,
+              onPressed: () async {
+                final success = await context.read<ChallengeProvider>().submitProof(
+                  widget.challenge.id,
+                  proofText: _textController.text,
+                  proofType: widget.challenge.proofType,
+                  file: _imageFile,
+                );
+                if (!context.mounted) return;
+                if (success) Navigator.of(context).pop();
+              },
+              backgroundColor: AppTheme.white,
+              textColor: AppTheme.black,
+              icon: const Icon(LucideIcons.checkCircle2, size: 20),
+            ),
           ),
         ],
       ),

@@ -42,21 +42,36 @@ class ApiService {
           final refreshToken = await storage.read(key: 'refreshToken');
           if (refreshToken != null) {
             try {
-              final response = await Dio().post('$baseUrl/auth/refresh-token', data: {'token': refreshToken});
-              final newToken = response.data['accessToken'];
-              await storage.write(key: 'accessToken', value: newToken);
+              // Use a fresh Dio instance to avoid recursive loops
+              final refreshResponse = await Dio().post(
+                '$baseUrl/auth/refresh-token', 
+                data: {'token': refreshToken}
+              );
               
-              e.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+              final String newAccessToken = refreshResponse.data['accessToken'];
+              final String newRefreshToken = refreshResponse.data['refreshToken'];
+              
+              await storage.write(key: 'accessToken', value: newAccessToken);
+              await storage.write(key: 'refreshToken', value: newRefreshToken);
+              
+              // Update original request headers and retry
+              e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              
+              final opts = Options(
+                method: e.requestOptions.method,
+                headers: e.requestOptions.headers,
+              );
+              
               final cloneReq = await dio.request(
                 e.requestOptions.path,
-                options: Options(
-                  method: e.requestOptions.method,
-                  headers: e.requestOptions.headers,
-                ),
+                options: opts,
                 data: e.requestOptions.data,
+                queryParameters: e.requestOptions.queryParameters,
               );
+              
               return handler.resolve(cloneReq);
             } catch (err) {
+              debugPrint('⚠️ Token Refresh Failed: $err');
               await storage.deleteAll();
             }
           }

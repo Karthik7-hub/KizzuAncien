@@ -161,41 +161,42 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
           ),
           Container(
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            child: isLoading
-                ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                : CustomButton(
-                    text: 'Send ${_isTruthMode ? "Truth" : "Dare"}',
-                    onPressed: () async {
-                      if (_inputController.text.isEmpty) return;
-                      bool success;
-                      if (_isTruthMode) {
-                        success = await context.read<TruthDareProvider>().sendTruth(
-                          widget.recipient.id,
-                          _inputController.text,
-                        );
-                      } else {
-                        success = await context.read<TruthDareProvider>().sendDare(
-                          widget.recipient.id,
-                          _inputController.text,
-                        );
-                      }
-                      
-                      if (!context.mounted) return;
-                      if (success) {
-                        Navigator.of(context).pop();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Insufficient points or error occurred.'),
-                            backgroundColor: Colors.redAccent,
-                          ),
-                        );
-                      }
-                    },
-                    backgroundColor: AppTheme.white,
-                    textColor: AppTheme.black,
-                    icon: const Icon(LucideIcons.send, size: 20),
-                  ),
+            child: CustomButton(
+              text: 'Send ${_isTruthMode ? "Truth" : "Dare"}',
+              isLoading: isLoading,
+              onPressed: () async {
+                if (_inputController.text.isEmpty) return;
+                bool success;
+                if (_isTruthMode) {
+                  success = await context.read<TruthDareProvider>().sendTruth(
+                    context,
+                    widget.recipient.id,
+                    _inputController.text,
+                  );
+                } else {
+                  success = await context.read<TruthDareProvider>().sendDare(
+                    context,
+                    widget.recipient.id,
+                    _inputController.text,
+                  );
+                }
+                
+                if (!context.mounted) return;
+                if (success) {
+                  Navigator.of(context).pop();
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Insufficient points or error occurred.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              },
+              backgroundColor: AppTheme.white,
+              textColor: AppTheme.black,
+              icon: const Icon(LucideIcons.send, size: 20),
+            ),
           ),
         ],
       ),

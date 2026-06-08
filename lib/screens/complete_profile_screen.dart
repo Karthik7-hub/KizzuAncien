@@ -30,9 +30,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   void _handleComplete() async {
+    final authProvider = context.read<AuthProvider>();
+    if (authProvider.isLoading) return;
     if (_usernameController.text.trim().isEmpty) return;
 
-    final authProvider = context.read<AuthProvider>();
     try {
       final result = await authProvider.googleLogin(
         widget.googleData,
@@ -100,15 +101,14 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                 ],
               ),
               const SizedBox(height: 48),
-              isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                  : CustomButton(
-                      text: 'Complete Profile',
-                      onPressed: _handleComplete,
-                      backgroundColor: AppTheme.white,
-                      textColor: AppTheme.black,
-                      icon: const Icon(LucideIcons.check, size: 20),
-                    ),
+              CustomButton(
+                text: 'Complete Profile',
+                onPressed: _handleComplete,
+                backgroundColor: AppTheme.white,
+                textColor: AppTheme.black,
+                icon: const Icon(LucideIcons.check, size: 20),
+                isLoading: isLoading,
+              ),
             ],
           ),
         ),

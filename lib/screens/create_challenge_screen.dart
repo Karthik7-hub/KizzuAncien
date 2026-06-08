@@ -126,9 +126,13 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             ),
             child: CustomButton(
               text: 'Launch Challenge',
+              isLoading: context.watch<ChallengeProvider>().isLoading,
               onPressed: () async {
                 if (widget.recipient == null) return;
-                final success = await context.read<ChallengeProvider>().createChallenge({
+                final challengeProvider = context.read<ChallengeProvider>();
+                if (challengeProvider.isLoading) return;
+
+                final success = await challengeProvider.createChallenge({
                   'recipientId': widget.recipient!.id,
                   'title': _titleController.text,
                   'description': _descController.text,

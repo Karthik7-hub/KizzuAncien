@@ -23,6 +23,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   void _handleSignUp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.isLoading) return;
+
     try {
       final success = await authProvider.register(
         _nameController.text.trim(),
@@ -126,15 +128,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 ],
               ),
               const SizedBox(height: 32),
-              isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                  : CustomButton(
-                      text: 'Create Account',
-                      onPressed: _handleSignUp,
-                      backgroundColor: AppTheme.white,
-                      textColor: AppTheme.black,
-                      icon: const Icon(LucideIcons.userPlus, size: 20),
-                    ),
+              CustomButton(
+                text: 'Create Account',
+                onPressed: _handleSignUp,
+                backgroundColor: AppTheme.white,
+                textColor: AppTheme.black,
+                icon: const Icon(LucideIcons.userPlus, size: 20),
+                isLoading: isLoading,
+              ),
               const SizedBox(height: 32),
               Center(
                 child: GestureDetector(

@@ -27,6 +27,8 @@ class ChallengeProvider extends ChangeNotifier {
   }
 
   Future<bool> createChallenge(Map<String, dynamic> data) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.post('/challenges', data: data);
       await fetchChallenges();
@@ -34,6 +36,9 @@ class ChallengeProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error creating challenge: $e');
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -42,6 +47,8 @@ class ChallengeProvider extends ChangeNotifier {
     String? proofType,
     File? file,
   }) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       FormData formData = FormData.fromMap({
         'challengeId': challengeId,
@@ -60,6 +67,9 @@ class ChallengeProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error submitting proof: $e');
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 
@@ -74,6 +84,8 @@ class ChallengeProvider extends ChangeNotifier {
   }
 
   Future<bool> reviewSubmission(String submissionId, String status) async {
+    _isLoading = true;
+    notifyListeners();
     try {
       await _apiService.dio.post('/challenges/review', data: {
         'submissionId': submissionId,
@@ -84,6 +96,9 @@ class ChallengeProvider extends ChangeNotifier {
     } catch (e) {
       debugPrint('Error reviewing submission: $e');
       return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
   }
 }

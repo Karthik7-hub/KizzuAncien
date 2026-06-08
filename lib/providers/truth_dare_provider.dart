@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import 'auth_provider.dart';
 
 class TruthDareProvider extends ChangeNotifier {
   bool _isLoading = false;
@@ -7,7 +9,7 @@ class TruthDareProvider extends ChangeNotifier {
 
   bool get isLoading => _isLoading;
 
-  Future<bool> sendTruth(String recipientId, String question) async {
+  Future<bool> sendTruth(BuildContext context, String recipientId, String question) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -15,6 +17,9 @@ class TruthDareProvider extends ChangeNotifier {
         'recipientId': recipientId,
         'question': question,
       });
+      if (context.mounted) {
+        await context.read<AuthProvider>().checkAuth();
+      }
       _isLoading = false;
       notifyListeners();
       return true;
@@ -25,7 +30,7 @@ class TruthDareProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> sendDare(String recipientId, String task) async {
+  Future<bool> sendDare(BuildContext context, String recipientId, String task) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -33,6 +38,9 @@ class TruthDareProvider extends ChangeNotifier {
         'recipientId': recipientId,
         'task': task,
       });
+      if (context.mounted) {
+        await context.read<AuthProvider>().checkAuth();
+      }
       _isLoading = false;
       notifyListeners();
       return true;

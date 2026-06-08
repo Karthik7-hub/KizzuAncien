@@ -13,12 +13,18 @@ class ProfileScreen extends StatefulWidget {
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
-class _ProfileScreenState extends State<ProfileScreen> {
+class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AuthProvider>().checkAuth();
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.user == null || authProvider.stats.isEmpty) {
+        authProvider.checkAuth();
+      }
     });
   }
 
@@ -28,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final authProvider = context.watch<AuthProvider>();
     final user = authProvider.user;
     final stats = authProvider.stats;
@@ -98,56 +105,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 crossAxisCount: 2,
-                childAspectRatio: 1.4,
+                childAspectRatio: 1.5,
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 children: [
                   _buildStatCard(stats['completed']?.toString() ?? '0', 'COMPLETED', LucideIcons.checkCircle),
-                  _buildStatCard(stats['streak']?.toString() ?? '0', 'DAY STREAK', LucideIcons.flame),
+                  _buildStatCard(stats['streak']?.toString() ?? '0', 'STREAK', LucideIcons.flame, color: AppTheme.accent),
                   _buildStatCard(stats['pointsEarned']?.toString() ?? '0', 'TOTAL EARNED', LucideIcons.award),
                   _buildStatCard(stats['friends']?.toString() ?? '0', 'FRIENDS', LucideIcons.users),
-                  _buildStatCard(stats['active']?.toString() ?? '0', 'ACTIVE', LucideIcons.zap),
-                  _buildStatCard(stats['failed']?.toString() ?? '0', 'MISSED', LucideIcons.xCircle),
                 ],
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 32),
 
-              // Settings
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(left: 4, bottom: 16),
-                  child: Text(
-                    'ACCOUNT',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.zinc600,
-                      letterSpacing: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-              /* 
-              _buildSettingItem(
-                icon: LucideIcons.settings,
-                title: 'Global Preferences',
-                onTap: () {},
-              ),
-              const SizedBox(height: 12),
-              _buildSettingItem(
-                icon: LucideIcons.helpCircle,
-                title: 'Help & Feedback',
-                onTap: () {},
-              ),
-              const SizedBox(height: 12),
-              */
               _buildSettingItem(
                 icon: LucideIcons.logOut,
-                title: 'Secure Log Out',
+                title: 'Sign Out',
                 textColor: Colors.redAccent,
                 iconColor: Colors.redAccent,
                 onTap: () async {
+                  HapticFeedback.mediumImpact();
                   await authProvider.logout();
                   if (context.mounted) {
                     Navigator.of(context).pushAndRemoveUntil(
@@ -165,36 +141,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildStatCard(String value, String label, IconData icon) {
+  Widget _buildStatCard(String value, String label, IconData icon, {Color? color}) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.zinc900.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.zinc800),
+        color: AppTheme.zinc950,
+        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+        border: Border.all(color: AppTheme.zinc900),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(icon, color: AppTheme.zinc600, size: 16),
-              const Icon(LucideIcons.arrowUpRight, color: AppTheme.zinc800, size: 14),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.white,
-                ),
-              ),
+              Icon(icon, color: color ?? AppTheme.zinc600, size: 14),
+              const SizedBox(width: 8),
               Text(
                 label,
                 style: const TextStyle(
@@ -205,6 +167,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.white,
+            ),
           ),
         ],
       ),
@@ -219,25 +190,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     Color? iconColor,
   }) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        HapticFeedback.lightImpact();
+        onTap();
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.zinc900.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.zinc800),
+          color: AppTheme.zinc950,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          border: Border.all(color: AppTheme.zinc900),
         ),
         child: Row(
           children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (iconColor ?? AppTheme.zinc400).withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, color: iconColor ?? AppTheme.zinc400, size: 20),
-            ),
-            const SizedBox(width: 16),
+            Icon(icon, color: iconColor ?? AppTheme.zinc500, size: 18),
+            const SizedBox(width: 12),
             Expanded(
               child: Text(
                 title,
@@ -248,8 +215,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
             ),
-            if (textColor == null)
-              const Icon(LucideIcons.chevronRight, color: AppTheme.zinc800, size: 18),
+            const Icon(LucideIcons.chevronRight, color: AppTheme.zinc800, size: 16),
           ],
         ),
       ),

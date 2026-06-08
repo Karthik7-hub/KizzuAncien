@@ -24,7 +24,12 @@ class _AuthScreenState extends State<AuthScreen> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+  bool _isProcessing = false;
+
   void _handleLogin() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+    
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
       final success = await authProvider.login(
@@ -48,10 +53,15 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
         );
       }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   void _handleGoogleLogin() async {
+    if (_isProcessing) return;
+    setState(() => _isProcessing = true);
+
     debugPrint('🚀 Starting Google Login...');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
@@ -61,10 +71,10 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      debugPrint('👤 Google User Result: $googleUser');
-
+      
       if (googleUser == null) {
-        debugPrint('⚠️ Google Login Cancelled by User');
+        debugPrint('⚠️ Google Login Cancelled');
+        setState(() => _isProcessing = false);
         return;
       }
 
@@ -73,63 +83,76 @@ class _AuthScreenState extends State<AuthScreen> {
         'email': googleUser.email,
         'name': googleUser.displayName,
       };
-      debugPrint('📊 Google Data Collected: $googleData');
 
-      // Check if user exists
-      final exists = await authProvider.checkEmail(googleUser.email);
-      debugPrint('🔍 User Exists in DB: $exists');
-
-      if (!exists) {
+      // Call googleLogin directly. The backend will tell us if user exists.
+      final result = await authProvider.googleLogin(googleData);
+      
+      if (result['exists'] == true) {
+        // EXISTING USER: Login successful
         if (mounted) {
-          debugPrint('🆕 Navigating to CompleteProfileScreen');
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+            (route) => false,
+          );
+        }
+      } else {
+        // NEW USER: Needs to complete profile
+        if (mounted) {
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (_) => CompleteProfileScreen(googleData: googleData),
             ),
-          );
-        }
-      } else {
-        debugPrint('🔐 Logging in existing user via API...');
-        final result = await authProvider.googleLogin(googleData);
-        debugPrint('✅ API Login Result: $result');
-        if (result['exists'] == true && mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(builder: (context) => const MainScreen()),
-          );
+          ).then((_) {
+            if (mounted) setState(() => _isProcessing = false);
+          });
         }
       }
     } catch (e) {
-      debugPrint('❌ GOOGLE LOGIN CRITICAL ERROR: $e');
+      debugPrint('❌ GOOGLE LOGIN ERROR: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Google Login failed: $e'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: Text('Login failed: ${e.toString().replaceAll('Exception: ', '')}'), 
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
+    } finally {
+      // Note: We don't set _isProcessing = false here if we navigated away 
+      // but the .then() and error catch handle it.
+      if (mounted && !Navigator.of(context).canPop()) {
+         // This is a bit tricky if we pushed a screen.
+      }
+      // Simpler:
+      if (mounted) setState(() => _isProcessing = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.watch<AuthProvider>().isLoading;
+    final isLoading = context.watch<AuthProvider>().isLoading || _isProcessing;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
       backgroundColor: AppTheme.black,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+          padding: const EdgeInsets.all(AppTheme.padding * 1.5),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 60),
+              const SizedBox(height: 48),
               TweenAnimationBuilder(
                 tween: Tween<double>(begin: 0, end: 1),
-                duration: const Duration(seconds: 1),
+                duration: const Duration(milliseconds: 600),
+                curve: Curves.easeOutCubic,
                 builder: (context, value, child) {
                   return Opacity(
                     opacity: value,
                     child: Transform.translate(
-                      offset: Offset(0, 30 * (1 - value)),
+                      offset: Offset(0, 20 * (1 - value)),
                       child: child,
                     ),
                   );
@@ -139,23 +162,18 @@ class _AuthScreenState extends State<AuthScreen> {
                   children: [
                     SvgPicture.asset(
                       'assets/logo.svg',
-                      width: 56,
-                      height: 56,
+                      width: 48,
+                      height: 48,
                     ),
                     const SizedBox(height: 32),
-                    const Text(
+                    Text(
                       'Welcome back.',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.white,
-                        letterSpacing: -1,
-                      ),
+                      style: textTheme.displayLarge,
                     ),
                     const SizedBox(height: 8),
-                    const Text(
+                    Text(
                       'Sign in to continue your streak.',
-                      style: TextStyle(color: AppTheme.zinc500, fontSize: 16),
+                      style: textTheme.bodyLarge?.copyWith(color: AppTheme.zinc500),
                     ),
                   ],
                 ),
@@ -166,35 +184,40 @@ class _AuthScreenState extends State<AuthScreen> {
                 hintText: 'Email Address',
                 keyboardType: TextInputType.emailAddress,
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
               CustomTextField(
                 controller: _passwordController,
                 hintText: 'Password',
                 obscureText: true,
               ),
               const SizedBox(height: 32),
-              isLoading
-                  ? const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                  : Column(
-                      children: [
-                        CustomButton(
-                          text: 'Sign In',
-                          onPressed: _handleLogin,
-                          backgroundColor: AppTheme.white,
-                          textColor: AppTheme.black,
-                          icon: const Icon(LucideIcons.logIn, size: 20),
-                        ),
-                        const SizedBox(height: 16),
-                        CustomButton(
-                          text: 'Continue with Google',
-                          onPressed: _handleGoogleLogin,
-                          backgroundColor: AppTheme.zinc900,
-                          textColor: AppTheme.white,
-                          borderColor: AppTheme.zinc800,
-                          icon: const Icon(LucideIcons.chrome, size: 20),
-                        ),
-                      ],
+              Column(
+                children: [
+                  CustomButton(
+                    text: 'Sign In',
+                    onPressed: _handleLogin,
+                    backgroundColor: AppTheme.white,
+                    textColor: AppTheme.black,
+                    icon: const Icon(LucideIcons.logIn, size: 18),
+                    isLoading: isLoading,
+                  ),
+                  const SizedBox(height: 12),
+                  CustomButton(
+                    text: 'Continue with Google',
+                    onPressed: _handleGoogleLogin,
+                    backgroundColor: AppTheme.zinc950,
+                    textColor: AppTheme.white,
+                    borderColor: AppTheme.zinc900,
+                    icon: SvgPicture.network(
+                      'https://www.vectorlogo.zone/logos/google/google-icon.svg',
+                      width: 18,
+                      height: 18,
+                      placeholderBuilder: (context) => const Icon(LucideIcons.globe, size: 18),
                     ),
+                    isLoading: isLoading,
+                  ),
+                ],
+              ),
               const SizedBox(height: 24),
               Center(
                 child: TextButton(
@@ -204,13 +227,13 @@ class _AuthScreenState extends State<AuthScreen> {
                     );
                   },
                   child: RichText(
-                    text: const TextSpan(
+                    text: TextSpan(
                       text: "New here? ",
-                      style: TextStyle(color: AppTheme.zinc600, fontSize: 14),
+                      style: textTheme.bodyMedium?.copyWith(color: AppTheme.zinc600),
                       children: [
                         TextSpan(
                           text: 'Create Account',
-                          style: TextStyle(
+                          style: textTheme.bodyMedium?.copyWith(
                             color: AppTheme.white,
                             fontWeight: FontWeight.bold,
                           ),
