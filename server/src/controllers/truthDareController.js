@@ -126,3 +126,74 @@ exports.getTruthsAndDares = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.answerTruth = async (req, res, next) => {
+  try {
+    const { truthId, answer } = req.body;
+    const truth = await Truth.findById(truthId).populate('sender');
+    if (!truth || truth.recipient.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ message: 'Truth question not found' });
+    }
+
+    truth.answer = answer;
+    truth.status = 'answered';
+    await truth.save();
+
+    await Notification.create({
+      recipient: truth.sender._id,
+      sender: req.user._id,
+      type: 'truth_answered',
+      relatedId: truth._id,
+      message: `${req.user.name} answered your truth question`
+    });
+
+    if (truth.sender.fcmToken) {
+      await sendPushNotification(
+        truth.sender.fcmToken,
+        'Truth Answered',
+        `${req.user.name} answered your truth question`,
+        { type: 'truth_answered', id: truth._id.toString() }
+      );
+    }
+
+    res.json(truth);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.completeDare = async (req, res, next) => {
+  try {
+    const { dareId } = req.body;
+    const dare = await Dare.findById(dareId).populate('sender');
+    if (!dare || dare.recipient.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ message: 'Dare task not found' });
+    }
+
+    // Optional: handle proof image if you want to support it for dares too
+    // For now, simple completion
+    dare.status = 'completed';
+    await dare.save();
+
+    await Notification.create({
+      recipient: dare.sender._id,
+      sender: req.user._id,
+      type: 'dare_completed',
+      relatedId: dare._id,
+      message: `${req.user.name} completed your dare task`
+    });
+
+    if (dare.sender.fcmToken) {
+      await sendPushNotification(
+        dare.sender.fcmToken,
+        'Dare Completed',
+        `${req.user.name} completed your dare task`,
+        { type: 'dare_completed', id: dare._id.toString() }
+      );
+    }
+
+    res.json(dare);
+  } catch (error) {
+    next(error);
+  }
+};

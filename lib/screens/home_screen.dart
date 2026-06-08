@@ -9,6 +9,7 @@ import 'package:kizzu_ancien/providers/auth_provider.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/providers/notification_provider.dart';
 import 'package:kizzu_ancien/providers/navigation_provider.dart';
+import 'package:kizzu_ancien/providers/truth_dare_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/screens/submit_proof_screen.dart';
 import 'package:kizzu_ancien/screens/review_screen.dart';
@@ -31,8 +32,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final challengeProvider = context.read<ChallengeProvider>();
+      final truthDareProvider = context.read<TruthDareProvider>();
       // Only auto-fetch if we don't have data yet
-      if (challengeProvider.challenges.isEmpty) {
+      if (challengeProvider.challenges.isEmpty || truthDareProvider.truths.isEmpty) {
         _refreshData();
       }
     });
@@ -43,6 +45,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       context.read<ChallengeProvider>().fetchChallenges(),
       context.read<NotificationProvider>().fetchNotifications(),
       context.read<AuthProvider>().checkAuth(),
+      context.read<TruthDareProvider>().fetchHistory(),
     ]);
   }
 
@@ -52,6 +55,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final user = context.watch<AuthProvider>().user;
     final challengeProvider = context.watch<ChallengeProvider>();
     final notificationProvider = context.watch<NotificationProvider>();
+    final truthDareProvider = context.watch<TruthDareProvider>();
     final navigationProvider = context.read<NavigationProvider>();
     final textTheme = Theme.of(context).textTheme;
 
@@ -62,6 +66,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final activeChallenges = challengeProvider.challenges
         .where((c) => c.recipient.id == user?.id && c.status == 'pending')
         .toList();
+
+    final pendingTruths = truthDareProvider.truths
+        .where((t) => t['recipient']['_id'] == user?.id && t['status'] == 'pending')
+        .toList();
+
+    final pendingDares = truthDareProvider.dares
+        .where((d) => d['recipient']['_id'] == user?.id && d['status'] == 'pending')
+        .toList();
+
+    final hasSocialTasks = pendingTruths.isNotEmpty || pendingDares.isNotEmpty;
 
     return RefreshIndicator(
       onRefresh: _refreshData,

@@ -56,6 +56,41 @@ exports.getChallenges = async (req, res, next) => {
   }
 };
 
+exports.getSharedChallenges = async (req, res, next) => {
+  try {
+    const { friendId } = req.params;
+    const userId = req.user._id;
+
+    const challenges = await Challenge.find({
+      $or: [
+        { creator: userId, recipient: friendId },
+        { creator: friendId, recipient: userId }
+      ]
+    })
+    .populate('creator recipient', 'name username profileImageUrl gender avatarType')
+    .sort('-createdAt');
+
+    // Fetch submissions for these challenges
+    const challengeIds = challenges.map(c => c._id);
+    const submissions = await ChallengeSubmission.find({
+      challenge: { $in: challengeIds }
+    });
+
+    // Merge submissions into challenges
+    const results = challenges.map(challenge => {
+      const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+      return {
+        ...challenge.toObject(),
+        submission: submission || null
+      };
+    });
+
+    res.json(results);
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getSubmissionByChallenge = async (req, res, next) => {
   try {
     const submission = await ChallengeSubmission.findOne({ challenge: req.params.challengeId })

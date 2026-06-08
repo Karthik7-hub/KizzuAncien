@@ -26,6 +26,21 @@ class ChallengeProvider extends ChangeNotifier {
     }
   }
 
+  Future<List<Challenge>> fetchSharedChallenges(String friendId) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await _apiService.dio.get('/challenges/shared/$friendId');
+      return (response.data as List).map((c) => Challenge.fromJson(c)).toList();
+    } catch (e) {
+      debugPrint('Error fetching shared challenges: $e');
+      return [];
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<bool> createChallenge(Map<String, dynamic> data) async {
     _isLoading = true;
     notifyListeners();

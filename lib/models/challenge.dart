@@ -9,6 +9,7 @@ class Challenge {
   final DateTime deadline;
   final String proofType;
   final String status;
+  final Map<String, dynamic>? submission;
 
   Challenge({
     required this.id,
@@ -19,6 +20,7 @@ class Challenge {
     required this.deadline,
     required this.proofType,
     required this.status,
+    this.submission,
   });
 
   factory Challenge.fromJson(Map<String, dynamic> json) {
@@ -31,6 +33,7 @@ class Challenge {
       deadline: DateTime.parse(json['deadline']),
       proofType: json['proofType'] ?? 'any',
       status: json['status'] ?? 'pending',
+      submission: json['submission'],
     );
   }
 }

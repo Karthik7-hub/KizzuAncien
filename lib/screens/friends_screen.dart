@@ -8,6 +8,7 @@ import '../models/user.dart';
 import '../widgets/avatar_widget.dart';
 import 'create_challenge_screen.dart';
 import 'truth_dare_screen.dart';
+import 'friend_profile_screen.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -268,39 +269,42 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
   }
 
   Widget _buildUserItem(User user, {required String type, String? requestId}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AppTheme.zinc950,
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        border: Border.all(color: AppTheme.zinc900),
-      ),
-      child: Row(
-        children: [
-          AvatarWidget(user: user, size: 48),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.white,
+    return GestureDetector(
+      onTap: type == 'friend' ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: user))) : null,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppTheme.zinc950,
+          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+          border: Border.all(color: AppTheme.zinc900),
+        ),
+        child: Row(
+          children: [
+            AvatarWidget(user: user, size: 48),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.name,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.white,
+                    ),
                   ),
-                ),
-                Text(
-                  '@${user.username}',
-                  style: const TextStyle(fontSize: 13, color: AppTheme.zinc500),
-                ),
-              ],
+                  Text(
+                    '@${user.username}',
+                    style: const TextStyle(fontSize: 13, color: AppTheme.zinc500),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _buildActions(user, type, requestId),
-        ],
+            _buildActions(user, type, requestId),
+          ],
+        ),
       ),
     );
   }
