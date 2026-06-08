@@ -46,8 +46,8 @@ exports.sendTruth = async (req, res, next) => {
     if (recipient && recipient.fcmToken) {
       await sendPushNotification(
         recipient.fcmToken,
-        'Truth Question Received',
-        `${req.user.name} sent you a truth question`,
+        'Truth',
+        `From ${req.user.name}\nTap to view`,
         { type: 'truth_received', id: truth._id.toString() }
       );
     }
@@ -99,8 +99,8 @@ exports.sendDare = async (req, res, next) => {
     if (recipient && recipient.fcmToken) {
       await sendPushNotification(
         recipient.fcmToken,
-        'Dare Task Received',
-        `${req.user.name} sent you a dare task`,
+        'Dare',
+        `From ${req.user.name}\nTap to view`,
         { type: 'dare_received', id: dare._id.toString() }
       );
     }
@@ -151,7 +151,7 @@ exports.answerTruth = async (req, res, next) => {
       await sendPushNotification(
         truth.sender.fcmToken,
         'Truth Answered',
-        `${req.user.name} answered your truth question`,
+        `${req.user.name} replied to your truth`,
         { type: 'truth_answered', id: truth._id.toString() }
       );
     }
@@ -187,7 +187,7 @@ exports.completeDare = async (req, res, next) => {
       await sendPushNotification(
         dare.sender.fcmToken,
         'Dare Completed',
-        `${req.user.name} completed your dare task`,
+        `${req.user.name} finished the dare`,
         { type: 'dare_completed', id: dare._id.toString() }
       );
     }

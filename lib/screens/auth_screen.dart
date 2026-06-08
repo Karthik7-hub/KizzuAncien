@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -65,11 +64,11 @@ class _AuthScreenState extends State<AuthScreen> {
     if (_isAnyLoading) return;
     setState(() => _isGoogleLoading = true);
 
-    debugPrint('🚀 Starting Google Login...');
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: AppConstants.googleServerClientId,
+        scopes: ['email', 'profile'],
       );
       
       final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
@@ -79,10 +78,13 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+
       final Map<String, dynamic> googleData = {
         'googleId': googleUser.id,
         'email': googleUser.email,
         'name': googleUser.displayName,
+        'idToken': googleAuth.idToken,
       };
 
       final result = await authProvider.googleLogin(googleData);

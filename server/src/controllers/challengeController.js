@@ -31,8 +31,8 @@ exports.createChallenge = async (req, res, next) => {
     if (recipient && recipient.fcmToken) {
       await sendPushNotification(
         recipient.fcmToken,
-        'New Challenge Received',
-        `${req.user.name} challenged you: ${title}`,
+        'Challenge',
+        `${title}\nFrom ${req.user.name}`,
         { type: 'challenge_received', id: challenge._id.toString() }
       );
     }
@@ -144,8 +144,8 @@ exports.submitProof = async (req, res, next) => {
     if (creator && creator.fcmToken) {
       await sendPushNotification(
         creator.fcmToken,
-        'Proof Submitted',
-        `${req.user.name} submitted verification for: ${challenge.title}`,
+        'Verification',
+        `${challenge.title}\nSubmitted by ${req.user.name}`,
         { type: 'submission_received', id: submission._id.toString() }
       );
     }
@@ -231,10 +231,10 @@ async function handleReview(submission, status, req, res) {
   if (recipient && recipient.fcmToken) {
     await sendPushNotification(
       recipient.fcmToken,
-      status === 'approved' ? 'Challenge Approved' : 'Challenge Declined',
+      status === 'approved' ? 'Approved' : 'Declined',
       status === 'approved'
-        ? `Your verification for "${challenge.title}" was approved.`
-        : `Your verification for "${challenge.title}" was declined.`,
+        ? `${challenge.title}\nVerification accepted`
+        : `${challenge.title}\nVerification declined`,
       { type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected', id: challenge._id.toString() }
     );
   }

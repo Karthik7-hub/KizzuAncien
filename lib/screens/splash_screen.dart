@@ -43,10 +43,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // We start checkAuth immediately while the animation plays
     final checkAuthFuture = authProvider.checkAuth();
     
-    // Wait for at least 800ms so the animation is visible, but no more than necessary
+    // Wait for at least 300ms so the animation is visible, but no more than necessary
     await Future.wait([
       checkAuthFuture,
-      Future.delayed(const Duration(milliseconds: 800)),
+      Future.delayed(const Duration(milliseconds: 300)),
     ]);
 
     final isLoggedIn = await checkAuthFuture;

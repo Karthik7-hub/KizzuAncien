@@ -81,7 +81,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                           decoration: BoxDecoration(
                             color: n.read ? Colors.transparent : AppTheme.zinc950,
-                            border: Border(
+                            border: const Border(
                               bottom: BorderSide(color: AppTheme.zinc900, width: 0.5),
                             ),
                           ),
@@ -114,7 +114,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                     const SizedBox(height: 4),
                                     Text(
                                       timeago.format(n.createdAt),
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: AppTheme.zinc600,
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,

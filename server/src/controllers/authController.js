@@ -50,8 +50,12 @@ exports.login = async (req, res, next) => {
 
 exports.googleLogin = async (req, res, next) => {
   try {
-    const { googleId, email, name, gender, username } = req.body;
+    const { googleId, email, name, gender, username, idToken } = req.body;
     let user = await User.findOne({ email });
+
+    // TODO: In production, verify idToken using google-auth-library
+    // const client = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
+    // const ticket = await client.verifyIdToken({ idToken, audience: process.env.GOOGLE_WEB_CLIENT_ID });
 
     if (!user) {
       // If user doesn't exist, we expect gender and username to be provided from the frontend

@@ -38,7 +38,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          side: BorderSide(color: zinc900, width: 1),
+          side: const BorderSide(color: zinc900, width: 1),
         ),
       ),
 
@@ -49,11 +49,11 @@ class AppTheme {
         hintStyle: const TextStyle(color: zinc600, fontSize: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: zinc900),
+          borderSide: const BorderSide(color: zinc900),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),
-          borderSide: BorderSide(color: zinc900),
+          borderSide: const BorderSide(color: zinc900),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius),

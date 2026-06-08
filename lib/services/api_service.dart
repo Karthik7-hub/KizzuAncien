@@ -4,21 +4,23 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/constants.dart';
 
 class ApiService {
-  static String get baseUrl => AppConstants.apiBaseUrl;
+  static final ApiService _instance = ApiService._internal();
+  factory ApiService() => _instance;
 
-  final Dio dio = Dio(BaseOptions(
-    baseUrl: baseUrl,
-    connectTimeout: const Duration(seconds: 10),
-    receiveTimeout: const Duration(seconds: 10),
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  ));
-  
+  late final Dio dio;
   final storage = const FlutterSecureStorage();
 
-  ApiService() {
+  ApiService._internal() {
+    dio = Dio(BaseOptions(
+      baseUrl: AppConstants.apiBaseUrl,
+      connectTimeout: const Duration(seconds: 10),
+      receiveTimeout: const Duration(seconds: 10),
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+    ));
+
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
         debugPrint('🌐 API REQUEST[${options.method}] => ${options.baseUrl}${options.path}');
@@ -44,7 +46,7 @@ class ApiService {
             try {
               // Use a fresh Dio instance to avoid recursive loops
               final refreshResponse = await Dio().post(
-                '$baseUrl/auth/refresh-token', 
+                '${AppConstants.apiBaseUrl}/auth/refresh-token',
                 data: {'token': refreshToken}
               );
               

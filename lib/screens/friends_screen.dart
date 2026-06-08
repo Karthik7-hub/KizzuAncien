@@ -326,7 +326,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           if (mounted) setState(() => _loadingStates[user.id] = false);
         },
       );
-    } else if (type == 'incoming') {
+    } else if (type == 'incoming' && requestId != null) {
+      final rId = requestId;
       return Row(
         children: [
           IconButton(
@@ -335,9 +336,9 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
               : const Icon(LucideIcons.check, color: AppTheme.black, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.white),
             onPressed: isAnyLoading ? null : () async {
-              setState(() => _loadingStates[requestId!] = true);
-              await provider.respondToRequest(requestId!, 'accepted');
-              if (mounted) setState(() => _loadingStates[requestId!] = false);
+              setState(() => _loadingStates[rId] = true);
+              await provider.respondToRequest(rId, 'accepted');
+              if (mounted) setState(() => _loadingStates[rId] = false);
             },
           ),
           const SizedBox(width: 8),
@@ -347,19 +348,20 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
               : const Icon(LucideIcons.x, color: AppTheme.white, size: 18),
             style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
             onPressed: isAnyLoading ? null : () async {
-              setState(() => _loadingStates[requestId!] = true);
-              await provider.respondToRequest(requestId!, 'rejected');
-              if (mounted) setState(() => _loadingStates[requestId!] = false);
+              setState(() => _loadingStates[rId] = true);
+              await provider.respondToRequest(rId, 'rejected');
+              if (mounted) setState(() => _loadingStates[rId] = false);
             },
           ),
         ],
       );
-    } else if (type == 'outgoing') {
+    } else if (type == 'outgoing' && requestId != null) {
+      final rId = requestId;
       return TextButton(
         onPressed: isAnyLoading ? null : () async {
-          setState(() => _loadingStates[requestId!] = true);
-          await provider.cancelRequest(requestId!);
-          if (mounted) setState(() => _loadingStates[requestId!] = false);
+          setState(() => _loadingStates[rId] = true);
+          await provider.cancelRequest(rId);
+          if (mounted) setState(() => _loadingStates[rId] = false);
         },
         child: Text(
           isProcessing ? '...' : 'Cancel', 

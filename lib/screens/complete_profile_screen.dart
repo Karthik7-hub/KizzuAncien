@@ -18,6 +18,7 @@ class CompleteProfileScreen extends StatefulWidget {
 class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   final TextEditingController _usernameController = TextEditingController();
   String _gender = 'male';
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -30,10 +31,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   }
 
   void _handleComplete() async {
-    final authProvider = context.read<AuthProvider>();
-    if (authProvider.isLoading) return;
+    if (_isLoading) return;
     if (_usernameController.text.trim().isEmpty) return;
 
+    setState(() => _isLoading = true);
+    final authProvider = context.read<AuthProvider>();
     try {
       final result = await authProvider.googleLogin(
         widget.googleData,
@@ -46,9 +48,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           MaterialPageRoute(builder: (context) => const MainScreen()),
           (route) => false,
         );
+      } else {
+        if (mounted) setState(() => _isLoading = false);
       }
     } catch (e) {
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.toString()), backgroundColor: Colors.redAccent),
         );
@@ -58,8 +63,6 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = context.watch<AuthProvider>().isLoading;
-
     return Scaffold(
       backgroundColor: AppTheme.black,
       body: SafeArea(
@@ -103,11 +106,11 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 48),
               CustomButton(
                 text: 'Complete Profile',
-                onPressed: _handleComplete,
+                onPressed: _isLoading ? null : _handleComplete,
                 backgroundColor: AppTheme.white,
                 textColor: AppTheme.black,
                 icon: const Icon(LucideIcons.check, size: 20),
-                isLoading: isLoading,
+                isLoading: _isLoading,
               ),
             ],
           ),

@@ -22,7 +22,6 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
   final TextEditingController _textController = TextEditingController();
   File? _imageFile;
   final ImagePicker _picker = ImagePicker();
-  bool _isSubmitting = false;
 
   Future<void> _pickImage(ImageSource source) async {
     try {

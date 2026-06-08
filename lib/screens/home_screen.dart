@@ -2,19 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:kizzu_ancien/models/challenge.dart';
 import 'package:kizzu_ancien/providers/auth_provider.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/providers/notification_provider.dart';
 import 'package:kizzu_ancien/providers/navigation_provider.dart';
 import 'package:kizzu_ancien/providers/truth_dare_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
-import 'package:kizzu_ancien/screens/submit_proof_screen.dart';
 import 'package:kizzu_ancien/screens/review_screen.dart';
+import 'package:kizzu_ancien/screens/notifications_screen.dart';
+import '../models/notification.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/challenge_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -33,7 +33,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final challengeProvider = context.read<ChallengeProvider>();
       final truthDareProvider = context.read<TruthDareProvider>();
-      // Only auto-fetch if we don't have data yet
       if (challengeProvider.challenges.isEmpty || truthDareProvider.truths.isEmpty) {
         _refreshData();
       }
@@ -55,7 +54,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final user = context.watch<AuthProvider>().user;
     final challengeProvider = context.watch<ChallengeProvider>();
     final notificationProvider = context.watch<NotificationProvider>();
-    final truthDareProvider = context.watch<TruthDareProvider>();
     final navigationProvider = context.read<NavigationProvider>();
     final textTheme = Theme.of(context).textTheme;
 
@@ -66,16 +64,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     final activeChallenges = challengeProvider.challenges
         .where((c) => c.recipient.id == user?.id && c.status == 'pending')
         .toList();
-
-    final pendingTruths = truthDareProvider.truths
-        .where((t) => t['recipient']['_id'] == user?.id && t['status'] == 'pending')
-        .toList();
-
-    final pendingDares = truthDareProvider.dares
-        .where((d) => d['recipient']['_id'] == user?.id && d['status'] == 'pending')
-        .toList();
-
-    final hasSocialTasks = pendingTruths.isNotEmpty || pendingDares.isNotEmpty;
 
     return RefreshIndicator(
       onRefresh: _refreshData,
@@ -194,7 +182,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   (context, index) {
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _buildChallengeCard(context, challenge: activeChallenges[index]),
+                      child: ChallengeCard(challenge: activeChallenges[index]),
                     );
                   },
                   childCount: activeChallenges.length,
@@ -203,44 +191,81 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
             ),
 
           SliverPadding(
-            padding: const EdgeInsets.all(AppTheme.padding),
-            sliver: SliverList(
-              delegate: SliverChildListDelegate([
-                const SizedBox(height: 20),
-                _buildSectionTitle('RECENT ACTIVITY'),
-                const SizedBox(height: 16),
-                if (notificationProvider.isLoading && notificationProvider.notifications.isEmpty)
-                  const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))
-                else if (notificationProvider.notifications.isEmpty)
-                  Text('All caught up!', style: textTheme.bodyMedium)
-                else
-                  Container(
-                    decoration: BoxDecoration(
-                      color: AppTheme.zinc950,
-                      borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-                      border: Border.all(color: AppTheme.zinc900),
-                    ),
-                    child: ListView.separated(
-                      shrinkWrap: true,
-                      padding: EdgeInsets.zero,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: notificationProvider.notifications.length > 3 ? 3 : notificationProvider.notifications.length,
-                      separatorBuilder: (_, __) => const Divider(color: AppTheme.zinc900, height: 1),
-                      itemBuilder: (context, index) {
-                        final n = notificationProvider.notifications[index];
-                        final isLast = index == (notificationProvider.notifications.length > 3 ? 2 : notificationProvider.notifications.length - 1);
-                        return _ActivityItem(
-                          text: n.message,
-                          time: timeago.format(n.createdAt),
-                          isLast: isLast,
-                        );
-                      },
-                    ),
+            padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding),
+            sliver: SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 20),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSectionTitle('RECENT ACTIVITY'),
+                      TextButton(
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: const Text(
+                          'View All',
+                          style: TextStyle(color: AppTheme.white, fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ],
                   ),
-                const SizedBox(height: 140),
-              ]),
+                  const SizedBox(height: 12),
+                ],
+              ),
             ),
           ),
+
+          if (notificationProvider.isLoading && notificationProvider.notifications.isEmpty)
+            const SliverToBoxAdapter(child: Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)))
+          else if (notificationProvider.notifications.isEmpty)
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: AppTheme.zinc950,
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                    border: Border.all(color: AppTheme.zinc900),
+                  ),
+                  child: Center(
+                    child: Text('All caught up!', style: textTheme.bodyMedium),
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: AppTheme.padding),
+              sliver: SliverToBoxAdapter(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AppTheme.zinc950,
+                    borderRadius: BorderRadius.circular(AppTheme.borderRadius),
+                    border: Border.all(color: AppTheme.zinc900),
+                  ),
+                  child: Column(
+                    children: [
+                      ...notificationProvider.notifications
+                          .take(4)
+                          .map((n) => _ActivityItem(notification: n))
+                          .toList(),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+          const SliverToBoxAdapter(child: SizedBox(height: 140)),
         ],
       ),
     );
@@ -271,9 +296,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildSectionTitle(String title) {
-    return Text(
-      title,
-      style: Theme.of(context).textTheme.labelSmall,
+    return Row(
+      children: [
+        Container(
+          width: 3,
+          height: 12,
+          decoration: BoxDecoration(
+            color: AppTheme.white,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.zinc500,
+            letterSpacing: 1.2,
+          ),
+        ),
+      ],
     );
   }
 
@@ -367,138 +410,141 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       ),
     );
   }
-
-  Widget _buildChallengeCard(BuildContext context, {required Challenge challenge}) {
-    return GestureDetector(
-      onTap: () {
-        HapticFeedback.lightImpact();
-        Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: challenge)));
-      },
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.zinc950,
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          border: Border.all(color: AppTheme.zinc900),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                AvatarWidget(user: challenge.creator, size: 32),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        challenge.creator.name,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.white),
-                      ),
-                      Text(
-                        'Requested verification',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.zinc500),
-                      ),
-                    ],
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AppTheme.zinc900,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    challenge.proofType.toUpperCase(),
-                    style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc400),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              challenge.title,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.white),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(LucideIcons.clock, size: 14, color: AppTheme.zinc600),
-                const SizedBox(width: 6),
-                Text(
-                  'Due ${DateFormat('MMM d, h:mm a').format(challenge.deadline)}',
-                  style: const TextStyle(fontSize: 12, color: AppTheme.zinc600),
-                ),
-                const Spacer(),
-                const Text(
-                  'Verify Now',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.white),
-                ),
-                const SizedBox(width: 4),
-                const Icon(LucideIcons.arrowRight, size: 14, color: AppTheme.white),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _ActivityItem extends StatelessWidget {
-  final String text;
-  final String time;
-  final bool isLast;
+  final NotificationModel notification;
 
-  const _ActivityItem({required this.text, required this.time, this.isLast = false});
+  const _ActivityItem({required this.notification});
+
+  IconData _getIcon() {
+    switch (notification.type) {
+      case 'challenge_received':
+        return LucideIcons.target;
+      case 'challenge_update':
+        return LucideIcons.refreshCw;
+      case 'friend_request':
+        return LucideIcons.userPlus;
+      case 'friend_accept':
+        return LucideIcons.userCheck;
+      case 'truth_dare_received':
+        return LucideIcons.zap;
+      default:
+        return LucideIcons.bell;
+    }
+  }
+
+  Color _getIconColor() {
+    switch (notification.type) {
+      case 'challenge_received':
+        return Colors.blue;
+      case 'friend_request':
+        return Colors.purple;
+      case 'truth_dare_received':
+        return Colors.amber;
+      case 'friend_accept':
+        return Colors.green;
+      default:
+        return AppTheme.zinc500;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return IntrinsicHeight(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Column(
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(top: 6),
-                decoration: const BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: AppTheme.zinc700,
-                ),
-              ),
-              if (!isLast)
-                Expanded(
-                  child: Container(
-                    width: 1,
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    color: AppTheme.zinc800,
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 20.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        HapticFeedback.selectionClick();
+        // Handle navigation based on type if needed
+        if (notification.type.contains('friend')) {
+          context.read<NavigationProvider>().setIndex(2);
+        } else if (notification.type.contains('challenge')) {
+          context.read<NavigationProvider>().setIndex(1);
+        }
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
               children: [
-                Text(
-                  text,
-                  style: const TextStyle(fontSize: 14, color: AppTheme.zinc300, height: 1.4),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  time,
-                  style: const TextStyle(fontSize: 12, color: AppTheme.zinc600),
+                if (notification.sender != null)
+                  AvatarWidget(user: notification.sender!, size: 38, showBorder: false)
+                else
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: _getIconColor().withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(_getIcon(), size: 18, color: _getIconColor()),
+                  ),
+                Positioned(
+                  right: 0,
+                  bottom: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: AppTheme.black,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: _getIconColor(),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        _getIcon(), 
+                        size: 8, 
+                        color: _getIconColor() == Colors.white ? Colors.black : Colors.white
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
-          ),
-        ],
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  RichText(
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    text: TextSpan(
+                      style: const TextStyle(fontSize: 13, color: AppTheme.zinc300, height: 1.4),
+                      children: [
+                        if (notification.sender != null)
+                          TextSpan(
+                            text: '${notification.sender!.name} ',
+                            style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold),
+                          ),
+                        TextSpan(text: notification.message.replaceAll(notification.sender?.name ?? '', '').trim()),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    timeago.format(notification.createdAt),
+                    style: const TextStyle(fontSize: 10, color: AppTheme.zinc600, fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ),
+            if (!notification.read)
+              Container(
+                width: 6,
+                height: 6,
+                margin: const EdgeInsets.only(top: 6, left: 8),
+                decoration: const BoxDecoration(
+                  color: AppTheme.accent,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

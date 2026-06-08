@@ -39,8 +39,8 @@ exports.sendRequest = async (req, res, next) => {
     if (recipient && recipient.fcmToken) {
       await sendPushNotification(
         recipient.fcmToken,
-        'New Friend Request',
-        `${req.user.name} sent a friend request`,
+        'Connect',
+        `From ${req.user.name}\nTap to respond`,
         { type: 'friend_request', id: friendRequest._id.toString() }
       );
     }
@@ -76,8 +76,8 @@ exports.respondToRequest = async (req, res, next) => {
       if (requester && requester.fcmToken) {
         await sendPushNotification(
           requester.fcmToken,
-          'Friend Request Accepted',
-          `${req.user.name} accepted your friend request`,
+          'Connected',
+          `${req.user.name} accepted your request`,
           { type: 'friend_request_accepted', id: friendRequest._id.toString() }
         );
       }

@@ -164,9 +164,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           onPressed: (_isVerifying || _isDeclining) ? null : () async {
                             setState(() => _isDeclining = true);
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'rejected');
-                            if (!context.mounted) return;
-                            if (success) Navigator.of(context).pop();
-                            else setState(() => _isDeclining = false);
+                            if (!context.mounted) {
+                              return;
+                            }
+                            if (success) {
+                              Navigator.of(context).pop();
+                            } else {
+                              setState(() => _isDeclining = false);
+                            }
                           },
                           backgroundColor: AppTheme.zinc900,
                           textColor: AppTheme.white,
@@ -182,9 +187,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           onPressed: (_isVerifying || _isDeclining) ? null : () async {
                             setState(() => _isVerifying = true);
                             final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'approved');
-                            if (!context.mounted) return;
-                            if (success) Navigator.of(context).pop();
-                            else setState(() => _isVerifying = false);
+                            if (!context.mounted) {
+                              return;
+                            }
+                            if (success) {
+                              Navigator.of(context).pop();
+                            } else {
+                              setState(() => _isVerifying = false);
+                            }
                           },
                           backgroundColor: AppTheme.white,
                           textColor: AppTheme.black,

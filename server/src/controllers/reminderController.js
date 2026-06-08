@@ -22,8 +22,8 @@ exports.sendDailyChallengeReminders = async (req, res, next) => {
       if (challenge.recipient && challenge.recipient.fcmToken) {
         await sendPushNotification(
           challenge.recipient.fcmToken,
-          "Challenge Available",
-          `Today's challenge: ${challenge.title}. Stay consistent.`,
+          "Reminder",
+          `${challenge.title}\nStay consistent`,
           { type: 'challenge_reminder', id: challenge._id.toString() }
         );
         sentCount++;
@@ -58,8 +58,8 @@ exports.sendStreakReminders = async (req, res, next) => {
     for (const user of usersAtRisk) {
       await sendPushNotification(
         user.fcmToken,
-        "Maintain Your Streak",
-        "Complete today's task to continue your streak.",
+        "Streak",
+        "Maintain your consistency\nTap to complete task",
         { type: 'streak_reminder' }
       );
       sentCount++;

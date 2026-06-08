@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:intl/intl.dart';
 import '../models/user.dart';
 import '../models/challenge.dart';
 import '../providers/challenge_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/challenge_card.dart';
 import 'create_challenge_screen.dart';
 import 'truth_dare_screen.dart';
 
@@ -23,7 +22,11 @@ class FriendProfileScreen extends StatefulWidget {
 class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Challenge> _history = [];
+  List<Challenge> _filteredHistory = [];
   bool _isLoading = true;
+  String _searchQuery = '';
+  String _sortBy = 'newest';
+  String _filterStatus = 'all';
 
   @override
   void initState() {
@@ -37,9 +40,33 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     if (mounted) {
       setState(() {
         _history = challenges;
+        _applyFilters();
         _isLoading = false;
       });
     }
+  }
+
+  void _applyFilters() {
+    List<Challenge> filtered = _history.where((c) {
+      final matchesSearch = c.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+          (c.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
+      
+      final matchesStatus = _filterStatus == 'all' || c.status == _filterStatus;
+      
+      return matchesSearch && matchesStatus;
+    }).toList();
+
+    if (_sortBy == 'newest') {
+      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (_sortBy == 'oldest') {
+      filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    } else if (_sortBy == 'status') {
+      filtered.sort((a, b) => a.status.compareTo(b.status));
+    }
+
+    setState(() {
+      _filteredHistory = filtered;
+    });
   }
 
   @override
@@ -130,145 +157,137 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       return const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2));
     }
 
-    if (_history.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(LucideIcons.history, size: 48, color: AppTheme.zinc800),
-            const SizedBox(height: 16),
-            Text('No shared history yet.', style: TextStyle(color: AppTheme.zinc600)),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(AppTheme.padding),
-      itemCount: _history.length,
-      itemBuilder: (context, index) => _buildChallengeCard(_history[index]),
-    );
-  }
-
-  Widget _buildChallengeCard(Challenge challenge) {
-    final bool isCreator = challenge.creator.id != widget.friend.id;
-    final String status = challenge.status.toUpperCase();
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppTheme.zinc950,
-        borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-        border: Border.all(color: AppTheme.zinc900),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      challenge.title,
-                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.white),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      challenge.description ?? 'No description provided.',
-                      style: TextStyle(color: AppTheme.zinc500, fontSize: 13, height: 1.4),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              _buildStatusBadge(challenge.status),
-            ],
-          ),
-          const SizedBox(height: 24),
-          
-          _buildDetailRow('Created', DateFormat('MMM d, yyyy').format(challenge.deadline.subtract(const Duration(days: 1)))),
-          if (challenge.status == 'approved' || challenge.status == 'submitted')
-            _buildDetailRow('Status', challenge.status == 'approved' ? 'Completed' : 'Pending Review'),
-          
-          if (challenge.submission != null) ...[
-            const SizedBox(height: 16),
-            const Text(
-              'PROOF SUBMITTED',
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppTheme.black,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppTheme.zinc900),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    challenge.submission!['proofUrl'] != null ? 'Media evidence uploaded' : 'Text verification',
-                    style: const TextStyle(color: AppTheme.zinc300, fontSize: 13),
+    return Column(
+      children: [
+        if (_history.isNotEmpty) _buildFilterBar(),
+        Expanded(
+          child: _filteredHistory.isEmpty
+              ? _buildEmptyState()
+              : ListView.builder(
+                  padding: const EdgeInsets.all(AppTheme.padding),
+                  itemCount: _filteredHistory.length,
+                  itemBuilder: (context, index) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: ChallengeCard(challenge: _filteredHistory[index], showParticipant: false),
                   ),
-                  if (challenge.submission!['proofText'] != null && challenge.submission!['proofText'].toString().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Note: ${challenge.submission!['proofText']}',
-                      style: const TextStyle(color: AppTheme.zinc500, fontSize: 13, fontStyle: FontStyle.italic),
-                    ),
-                  ],
-                ],
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterBar() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(AppTheme.padding, 12, AppTheme.padding, 0),
+      child: Column(
+        children: [
+          TextField(
+            onChanged: (value) {
+              _searchQuery = value;
+              _applyFilters();
+            },
+            style: const TextStyle(color: AppTheme.white, fontSize: 14),
+            decoration: InputDecoration(
+              hintText: 'Search challenges...',
+              hintStyle: const TextStyle(color: AppTheme.zinc600),
+              prefixIcon: const Icon(LucideIcons.search, size: 18, color: AppTheme.zinc600),
+              filled: true,
+              fillColor: AppTheme.zinc950,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.zinc900),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: AppTheme.zinc900),
               ),
             ),
-          ],
+          ),
+          const SizedBox(height: 12),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildFilterChip('All', 'all'),
+                const SizedBox(width: 8),
+                _buildFilterChip('In Progress', 'pending'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Review', 'submitted'),
+                const SizedBox(width: 8),
+                _buildFilterChip('Completed', 'approved'),
+                const SizedBox(width: 16),
+                Container(width: 1, height: 20, color: AppTheme.zinc800),
+                const SizedBox(width: 16),
+                _buildSortDropdown(),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  Widget _buildFilterChip(String label, String status) {
+    final isSelected = _filterStatus == status;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _filterStatus = status);
+        _applyFilters();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.white : AppTheme.zinc950,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: isSelected ? AppTheme.white : AppTheme.zinc900),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            color: isSelected ? AppTheme.black : AppTheme.zinc500,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSortDropdown() {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: _sortBy,
+        dropdownColor: AppTheme.zinc950,
+        icon: const Icon(LucideIcons.arrowUpDown, size: 14, color: AppTheme.zinc500),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.zinc500),
+        items: const [
+          DropdownMenuItem(value: 'newest', child: Text('Newest')),
+          DropdownMenuItem(value: 'oldest', child: Text('Oldest')),
+          DropdownMenuItem(value: 'status', child: Text('Status')),
+        ],
+        onChanged: (value) {
+          if (value != null) {
+            setState(() => _sortBy = value);
+            _applyFilters();
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(label, style: const TextStyle(color: AppTheme.zinc600, fontSize: 13)),
-          Text(value, style: const TextStyle(color: AppTheme.white, fontSize: 13, fontWeight: FontWeight.w500)),
+          const Icon(LucideIcons.history, size: 48, color: AppTheme.zinc800),
+          const SizedBox(height: 16),
+          Text(
+            _searchQuery.isEmpty ? 'No shared history yet.' : 'No matches found.',
+            style: const TextStyle(color: AppTheme.zinc600),
+          ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildStatusBadge(String status) {
-    Color textColor = AppTheme.zinc400;
-    Color bgColor = AppTheme.zinc900;
-    
-    if (status == 'approved') {
-      textColor = Colors.white;
-      bgColor = Colors.green.withValues(alpha: 0.2);
-    } else if (status == 'pending') {
-      textColor = Colors.white;
-      bgColor = Colors.blue.withValues(alpha: 0.2);
-    } else if (status == 'rejected') {
-      textColor = Colors.white;
-      bgColor = Colors.red.withValues(alpha: 0.2);
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        status == 'approved' ? 'COMPLETED' : status.toUpperCase(),
-        style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textColor, letterSpacing: 0.5),
       ),
     );
   }
