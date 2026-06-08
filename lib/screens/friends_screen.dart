@@ -332,8 +332,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
             style: IconButton.styleFrom(backgroundColor: AppTheme.white),
             onPressed: isAnyLoading ? null : () async {
               setState(() => _loadingStates[requestId!] = true);
-              await provider.respondToRequest(requestId, 'accepted');
-              if (mounted) setState(() => _loadingStates[requestId] = false);
+              await provider.respondToRequest(requestId!, 'accepted');
+              if (mounted) setState(() => _loadingStates[requestId!] = false);
             },
           ),
           const SizedBox(width: 8),
@@ -344,8 +344,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
             style: IconButton.styleFrom(backgroundColor: AppTheme.zinc800),
             onPressed: isAnyLoading ? null : () async {
               setState(() => _loadingStates[requestId!] = true);
-              await provider.respondToRequest(requestId, 'rejected');
-              if (mounted) setState(() => _loadingStates[requestId] = false);
+              await provider.respondToRequest(requestId!, 'rejected');
+              if (mounted) setState(() => _loadingStates[requestId!] = false);
             },
           ),
         ],
@@ -354,8 +354,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
       return TextButton(
         onPressed: isAnyLoading ? null : () async {
           setState(() => _loadingStates[requestId!] = true);
-          await provider.cancelRequest(requestId);
-          if (mounted) setState(() => _loadingStates[requestId] = false);
+          await provider.cancelRequest(requestId!);
+          if (mounted) setState(() => _loadingStates[requestId!] = false);
         },
         child: Text(
           isProcessing ? '...' : 'Cancel', 
