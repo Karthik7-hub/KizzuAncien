@@ -22,7 +22,7 @@ class ChallengeCard extends StatelessWidget {
     
     String actionText = 'Complete Challenge →';
     if (isSubmitted) {
-      actionText = 'Awaiting Review →';
+      actionText = 'Reviewing...';
     } else if (isCompleted) {
       actionText = 'View Details →';
     } else if (isDeclined) {

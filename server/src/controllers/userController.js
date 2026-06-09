@@ -99,6 +99,42 @@ exports.updateFcmToken = async (req, res, next) => {
   }
 };
 
+exports.getUserProfile = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const relationship = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: userId },
+        { requester: userId, recipient: req.user._id }
+      ]
+    });
+
+    let relationshipStatus = 'NOT_FRIENDS';
+    if (relationship) {
+      if (relationship.status === 'accepted') {
+        relationshipStatus = 'FRIENDS';
+      } else if (relationship.status === 'pending') {
+        relationshipStatus = relationship.requester.toString() === req.user._id.toString()
+          ? 'PENDING_SENT'
+          : 'PENDING_RECEIVED';
+      }
+    }
+
+    res.json({
+      user,
+      relationshipStatus,
+      requestId: relationship ? relationship._id : null
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.searchUsers = async (req, res, next) => {
   try {
     const keyword = req.query.search ? {

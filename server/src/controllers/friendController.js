@@ -1,7 +1,7 @@
 const Friend = require('../models/Friend');
 const User = require('../models/User');
 const Challenge = require('../models/Challenge');
-const Notification = require('../models/Notification');
+const { createCappedNotification } = require('../utils/notificationUtils');
 const { sendPushNotification } = require('../services/firebaseService');
 
 exports.sendRequest = async (req, res, next) => {
@@ -27,7 +27,7 @@ exports.sendRequest = async (req, res, next) => {
       recipient: recipientId
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'friend_request',
@@ -65,7 +65,7 @@ exports.respondToRequest = async (req, res, next) => {
     await friendRequest.save();
 
     if (status === 'accepted') {
-      await Notification.create({
+      await createCappedNotification({
         recipient: friendRequest.requester,
         sender: req.user._id,
         type: 'friend_request_accepted',

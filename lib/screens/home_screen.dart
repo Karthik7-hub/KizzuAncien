@@ -14,6 +14,7 @@ import 'package:kizzu_ancien/screens/review_screen.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/challenge_card.dart';
+import '../widgets/challenge_filter_dropdown.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,6 +24,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMixin {
+  ChallengeCategory _selectedCategory = ChallengeCategory.all;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -63,7 +66,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         .toList();
 
     final activeChallenges = challengeProvider.challenges
-        .where((c) => c.recipient.id == user.id && c.status == 'pending')
+        .where((c) => c.recipient.id == user.id && (c.status == 'pending' || c.status == 'submitted'))
         .toList();
 
     // Social Feed: Chronological by updatedAt
@@ -135,9 +138,22 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   ],
 
                   if (activeChallenges.isNotEmpty) ...[
-                    _buildSectionHeader('ACTIVE CHALLENGES'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionHeader('ACTIVE CHALLENGES'),
+                        ChallengeFilterDropdown(
+                          selectedCategory: _selectedCategory,
+                          onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 16),
-                    ...activeChallenges.map((c) => Padding(
+                    ...activeChallenges.where((c) {
+                      if (_selectedCategory == ChallengeCategory.received) return c.recipient.id == user.id;
+                      if (_selectedCategory == ChallengeCategory.sent) return c.creator.id == user.id;
+                      return true;
+                    }).map((c) => Padding(
                       padding: const EdgeInsets.only(bottom: 16),
                       child: ChallengeCard(challenge: c),
                     )),

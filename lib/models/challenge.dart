@@ -9,6 +9,7 @@ class Challenge {
   final DateTime deadline;
   final String proofType;
   final String status;
+  final String? coverImage;
   final DateTime createdAt;
   final DateTime updatedAt;
   final Map<String, dynamic>? submission;
@@ -22,6 +23,7 @@ class Challenge {
     required this.deadline,
     required this.proofType,
     required this.status,
+    this.coverImage,
     required this.createdAt,
     required this.updatedAt,
     this.submission,
@@ -37,6 +39,7 @@ class Challenge {
       deadline: DateTime.parse(json['deadline']),
       proofType: json['proofType'] ?? 'any',
       status: json['status'] ?? 'pending',
+      coverImage: json['coverImage'],
       createdAt: json['createdAt'] != null 
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),

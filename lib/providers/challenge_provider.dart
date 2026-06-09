@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/challenge.dart';
+import '../models/message.dart';
 import '../services/api_service.dart';
 import '../utils/logger.dart';
 
@@ -115,6 +116,37 @@ class ChallengeProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  // Discussion / Messages
+  final Map<String, List<Message>> _challengeMessages = {};
+  Map<String, List<Message>> get challengeMessages => _challengeMessages;
+
+  Future<void> fetchMessages(String challengeId) async {
+    try {
+      final response = await _apiService.dio.get('/challenges/$challengeId/messages');
+      _challengeMessages[challengeId] = (response.data as List).map((m) => Message.fromJson(m)).toList();
+      notifyListeners();
+    } catch (e) {
+      AppLogger.error('Error fetching messages', e);
+    }
+  }
+
+  Future<bool> sendMessage(String challengeId, String content) async {
+    try {
+      final response = await _apiService.dio.post('/challenges/$challengeId/messages', data: {'content': content});
+      final newMessage = Message.fromJson(response.data);
+      if (_challengeMessages[challengeId] != null) {
+        _challengeMessages[challengeId]!.add(newMessage);
+      } else {
+        _challengeMessages[challengeId] = [newMessage];
+      }
+      notifyListeners();
+      return true;
+    } catch (e) {
+      AppLogger.error('Error sending message', e);
+      return false;
     }
   }
 }

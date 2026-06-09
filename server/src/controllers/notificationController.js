@@ -4,7 +4,8 @@ exports.getNotifications = async (req, res, next) => {
   try {
     const notifications = await Notification.find({ recipient: req.user._id })
       .populate('sender', 'name username profileImageUrl gender avatarType')
-      .sort('-createdAt');
+      .sort('-createdAt')
+      .limit(50);
     res.json(notifications);
   } catch (error) {
     next(error);

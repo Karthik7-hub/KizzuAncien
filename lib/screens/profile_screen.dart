@@ -9,6 +9,7 @@ import 'package:kizzu_ancien/screens/review_screen.dart';
 import '../models/challenge.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/challenge_card.dart';
+import '../widgets/challenge_filter_dropdown.dart';
 import 'auth_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -21,6 +22,7 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveClientMixin {
   String _searchQuery = '';
   String _sortBy = 'newest'; // newest, oldest, updated, alphabetical
+  ChallengeCategory _selectedCategory = ChallengeCategory.all;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -63,6 +65,9 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
     List<Challenge> filtered = challengeProvider.challenges.where((c) {
       final isMine = c.recipient.id == user.id || c.creator.id == user.id;
       if (!isMine) return false;
+
+      if (_selectedCategory == ChallengeCategory.received && c.recipient.id != user.id) return false;
+      if (_selectedCategory == ChallengeCategory.sent && c.creator.id != user.id) return false;
 
       final query = _searchQuery.toLowerCase();
       final matchesSearch = c.title.toLowerCase().contains(query) ||
@@ -177,7 +182,16 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildSectionHeader('CHALLENGES'),
-                      _buildSortMenu(),
+                      Row(
+                        children: [
+                          ChallengeFilterDropdown(
+                            selectedCategory: _selectedCategory,
+                            onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                          ),
+                          const SizedBox(width: 8),
+                          _buildSortMenu(),
+                        ],
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),

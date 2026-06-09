@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/challenge_card.dart';
+import '../widgets/challenge_filter_dropdown.dart';
 import 'create_challenge_screen.dart';
 import 'truth_dare_screen.dart';
 
@@ -28,13 +29,32 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   bool _isLoading = true;
   String _searchQuery = '';
   String _sortBy = 'newest'; // newest, oldest, updated, alphabetical
+  ChallengeCategory _selectedCategory = ChallengeCategory.all;
   final TextEditingController _searchController = TextEditingController();
+
+  String _relationshipStatus = 'NOT_FRIENDS';
+  String? _requestId;
+  bool _isActionLoading = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadHistory();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    final profileData = await context.read<FriendProvider>().fetchUserProfile(widget.friend.id);
+    final challenges = await context.read<ChallengeProvider>().fetchSharedChallenges(widget.friend.id);
+    
+    if (mounted) {
+      setState(() {
+        _relationshipStatus = profileData['relationshipStatus'] ?? 'NOT_FRIENDS';
+        _requestId = profileData['requestId'];
+        _history = challenges;
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -42,8 +62,37 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     if (mounted) {
       setState(() {
         _history = challenges;
-        _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _handleFriendAction() async {
+    final friendProvider = context.read<FriendProvider>();
+    setState(() => _isActionLoading = true);
+
+    bool success = false;
+    if (_relationshipStatus == 'NOT_FRIENDS') {
+      success = await friendProvider.sendFriendRequest(widget.friend.id);
+      if (success) {
+        _relationshipStatus = 'PENDING_SENT';
+        // Reload data to get the requestId
+        await _loadData();
+      }
+    } else if (_relationshipStatus == 'PENDING_SENT' && _requestId != null) {
+      success = await friendProvider.cancelRequest(_requestId!);
+      if (success) {
+        _relationshipStatus = 'NOT_FRIENDS';
+        _requestId = null;
+      }
+    } else if (_relationshipStatus == 'PENDING_RECEIVED' && _requestId != null) {
+      success = await friendProvider.respondToRequest(_requestId!, 'accepted');
+      if (success) {
+        _relationshipStatus = 'FRIENDS';
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isActionLoading = false);
     }
   }
 
@@ -171,6 +220,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
     // 1. Filter
     List<Challenge> filtered = _history.where((c) {
+      if (_selectedCategory == ChallengeCategory.received && c.recipient.id != user?.id) return false;
+      if (_selectedCategory == ChallengeCategory.sent && c.creator.id != user?.id) return false;
+
       final query = _searchQuery.toLowerCase();
       return c.title.toLowerCase().contains(query) ||
           (c.description?.toLowerCase().contains(query) ?? false);
@@ -287,6 +339,11 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
               ),
             ),
             const SizedBox(width: 12),
+            ChallengeFilterDropdown(
+              selectedCategory: _selectedCategory,
+              onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+            ),
+            const SizedBox(width: 8),
             PopupMenuButton<String>(
               icon: const Icon(LucideIcons.listFilter, size: 20, color: AppTheme.zinc600),
               color: AppTheme.zinc950,
@@ -341,24 +398,55 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       padding: const EdgeInsets.all(AppTheme.padding * 1.5),
       child: Column(
         children: [
-          CustomButton(
-            text: 'Send New Challenge',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: widget.friend))),
-            backgroundColor: AppTheme.white,
-            textColor: AppTheme.black,
-            icon: const Icon(LucideIcons.plus, size: 20),
-          ),
-          const SizedBox(height: 16),
-          CustomButton(
-            text: 'Send Truth or Dare',
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(recipient: widget.friend))),
-            backgroundColor: AppTheme.zinc900,
-            textColor: AppTheme.white,
-            borderColor: AppTheme.zinc800,
-            icon: const Icon(LucideIcons.zap, size: 20),
-          ),
+          if (_relationshipStatus == 'FRIENDS') ...[
+            CustomButton(
+              text: 'Send New Challenge',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: widget.friend))),
+              backgroundColor: AppTheme.white,
+              textColor: AppTheme.black,
+              icon: const Icon(LucideIcons.plus, size: 20),
+            ),
+            const SizedBox(height: 16),
+            CustomButton(
+              text: 'Send Truth or Dare',
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(recipient: widget.friend))),
+              backgroundColor: AppTheme.zinc900,
+              textColor: AppTheme.white,
+              borderColor: AppTheme.zinc800,
+              icon: const Icon(LucideIcons.zap, size: 20),
+            ),
+          ] else
+            _buildRelationshipButton(),
         ],
       ),
+    );
+  }
+
+  Widget _buildRelationshipButton() {
+    String text = 'Add Friend';
+    IconData icon = LucideIcons.userPlus;
+    Color bg = AppTheme.white;
+    Color fg = AppTheme.black;
+
+    if (_relationshipStatus == 'PENDING_SENT') {
+      text = 'Request Sent';
+      icon = LucideIcons.clock;
+      bg = AppTheme.zinc900;
+      fg = AppTheme.white;
+    } else if (_relationshipStatus == 'PENDING_RECEIVED') {
+      text = 'Accept Request';
+      icon = LucideIcons.check;
+      bg = AppTheme.white;
+      fg = AppTheme.black;
+    }
+
+    return CustomButton(
+      text: text,
+      isLoading: _isActionLoading,
+      onPressed: _handleFriendAction,
+      backgroundColor: bg,
+      textColor: fg,
+      icon: Icon(icon, size: 20),
     );
   }
 }

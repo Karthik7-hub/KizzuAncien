@@ -1,7 +1,7 @@
 const Truth = require('../models/Truth');
 const Dare = require('../models/Dare');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { createCappedNotification } = require('../utils/notificationUtils');
 const PointTransaction = require('../models/PointTransaction');
 const { sendPushNotification } = require('../services/firebaseService');
 
@@ -33,7 +33,7 @@ exports.sendTruth = async (req, res, next) => {
       description: `Sent truth to ${recipientId}`
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'truth_received',
@@ -86,7 +86,7 @@ exports.sendDare = async (req, res, next) => {
       description: `Sent dare to ${recipientId}`
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'dare_received',
@@ -139,7 +139,7 @@ exports.answerTruth = async (req, res, next) => {
     truth.status = 'answered';
     await truth.save();
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: truth.sender._id,
       sender: req.user._id,
       type: 'truth_answered',
@@ -175,7 +175,7 @@ exports.completeDare = async (req, res, next) => {
     dare.status = 'completed';
     await dare.save();
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: dare.sender._id,
       sender: req.user._id,
       type: 'dare_completed',

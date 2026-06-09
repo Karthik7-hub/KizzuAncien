@@ -2,24 +2,25 @@ const Challenge = require('../models/Challenge');
 const ChallengeSubmission = require('../models/ChallengeSubmission');
 const User = require('../models/User');
 const Friend = require('../models/Friend');
-const Notification = require('../models/Notification');
+const { createCappedNotification } = require('../utils/notificationUtils');
 const PointTransaction = require('../models/PointTransaction');
 const { uploadImage } = require('../services/imageKitService');
 const { sendPushNotification } = require('../services/firebaseService');
 
 exports.createChallenge = async (req, res, next) => {
   try {
-    const { recipientId, title, description, deadline, proofType } = req.body;
+    const { recipientId, title, description, deadline, proofType, coverImage } = req.body;
     const challenge = await Challenge.create({
       creator: req.user._id,
       recipient: recipientId,
       title,
       description,
       deadline,
-      proofType
+      proofType,
+      coverImage
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'challenge_received',
@@ -51,7 +52,23 @@ exports.getChallenges = async (req, res, next) => {
     })
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
     .sort('-createdAt');
-    res.json(challenges);
+
+    // Fetch submissions for these challenges
+    const challengeIds = challenges.map(c => c._id);
+    const submissions = await ChallengeSubmission.find({
+      challenge: { $in: challengeIds }
+    });
+
+    // Merge submissions into challenges
+    const results = challenges.map(challenge => {
+      const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+      return {
+        ...challenge.toObject(),
+        submission: submission || null
+      };
+    });
+
+    res.json(results);
   } catch (error) {
     next(error);
   }
@@ -95,10 +112,19 @@ exports.getSharedChallenges = async (req, res, next) => {
 exports.getSubmissionByChallenge = async (req, res, next) => {
   try {
     const submission = await ChallengeSubmission.findOne({ challenge: req.params.challengeId })
+      .populate('challenge')
       .populate('submitter', 'name username profileImageUrl gender avatarType');
+
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
     }
+
+    // Security check: Only creator or recipient can view the submission
+    if (submission.challenge.creator.toString() !== req.user._id.toString() &&
+        submission.challenge.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view this submission' });
+    }
+
     res.json(submission);
   } catch (error) {
     next(error);
@@ -136,7 +162,7 @@ exports.submitProof = async (req, res, next) => {
     challenge.status = 'submitted';
     await challenge.save();
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: challenge.creator,
       sender: req.user._id,
       type: 'submission_received',
@@ -218,7 +244,11 @@ async function handleReview(submission, status, req, res) {
 
       if (!lastUpdate || today > lastUpdate) {
         const yesterday = today - 86400000;
-        if (lastUpdate === yesterday) {
+        const twoDaysAgo = today - (86400000 * 2);
+
+        if (lastUpdate === yesterday || lastUpdate === twoDaysAgo) {
+          // Leniency: If last update was yesterday OR two days ago (to account for timezone shifts)
+          // we increment. This prevents streaks from breaking due to small timezone overlaps.
           friendRel.streak += 1;
         } else {
           friendRel.streak = 1;
@@ -269,7 +299,7 @@ async function handleReview(submission, status, req, res) {
     });
   }
 
-  await Notification.create({
+  await createCappedNotification({
     recipient: challenge.recipient,
     sender: req.user._id,
     type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected',

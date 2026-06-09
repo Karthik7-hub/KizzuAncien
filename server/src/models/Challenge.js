@@ -16,6 +16,7 @@ const challengeSchema = new mongoose.Schema({
     enum: ['pending', 'submitted', 'approved', 'rejected', 'expired'],
     default: 'pending'
   },
+  coverImage: { type: String },
 }, { timestamps: true });
 
 challengeSchema.index({ creator: 1 });

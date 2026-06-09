@@ -41,6 +41,16 @@ class FriendProvider extends ChangeNotifier {
     }
   }
 
+  Future<Map<String, dynamic>> fetchUserProfile(String userId) async {
+    try {
+      final response = await _apiService.dio.get('/users/profile/$userId');
+      return response.data;
+    } catch (e) {
+      AppLogger.error('Error fetching user profile', e);
+      return {};
+    }
+  }
+
   Future<void> searchUsers(String query) async {
     if (query.isEmpty) {
       _searchResults = [];
