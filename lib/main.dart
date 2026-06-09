@@ -36,7 +36,8 @@ void main() async {
   // Register background handler
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  await NotificationService.init();
+  // Initialize notifications without awaiting to prevent startup hangs
+  NotificationService.init();
 
   runApp(
     MultiProvider(

@@ -17,9 +17,6 @@ const userSchema = new mongoose.Schema({
   fcmToken: { type: String, default: null },
 }, { timestamps: true });
 
-userSchema.index({ username: 1 });
-userSchema.index({ email: 1 });
-
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);

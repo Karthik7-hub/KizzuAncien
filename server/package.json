@@ -16,7 +16,7 @@
     "express-rate-limit": "^7.5.1",
     "firebase-admin": "^12.0.0",
     "helmet": "^7.1.0",
-    "imagekit": "^1.5.0",
+    "imagekit": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.0.3",
     "morgan": "^1.10.0",
