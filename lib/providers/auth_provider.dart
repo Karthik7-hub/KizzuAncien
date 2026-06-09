@@ -5,16 +5,21 @@ import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 
+enum AuthStatus { authenticated, unauthenticated, offline }
+
 class AuthProvider extends ChangeNotifier {
   User? _user;
   Map<String, dynamic> _stats = {};
   bool _isLoading = false;
+  AuthStatus _status = AuthStatus.unauthenticated;
+  
   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
 
   User? get user => _user;
   Map<String, dynamic> get stats => _stats;
   bool get isLoading => _isLoading;
+  AuthStatus get status => _status;
 
   Future<bool> register(String name, String username, String email, String password, String gender) async {
     _isLoading = true;
@@ -33,6 +38,7 @@ class AuthProvider extends ChangeNotifier {
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
         await NotificationService.setupFcmToken();
+        _status = AuthStatus.authenticated;
       }
       
       _isLoading = false;
@@ -71,6 +77,7 @@ class AuthProvider extends ChangeNotifier {
       await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
       await NotificationService.setupFcmToken();
       
+      _status = AuthStatus.authenticated;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -108,6 +115,7 @@ class AuthProvider extends ChangeNotifier {
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
         await NotificationService.setupFcmToken();
+        _status = AuthStatus.authenticated;
       }
       
       _isLoading = false;
@@ -165,37 +173,56 @@ class AuthProvider extends ChangeNotifier {
     }
     await _storage.deleteAll();
     _user = null;
+    _status = AuthStatus.unauthenticated;
     notifyListeners();
   }
 
-  Future<bool> checkAuth() async {
+  Future<AuthStatus> checkAuth() async {
     final token = await _storage.read(key: 'accessToken');
-    if (token == null) return false;
+    if (token == null) {
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return AuthStatus.unauthenticated;
+    }
     
     try {
-      final response = await _apiService.dio.get('/users/profile');
+      // Use a shorter timeout for startup check to avoid hanging the splash screen
+      final response = await _apiService.dio.get('/users/profile').timeout(
+        const Duration(seconds: 4),
+      );
+      
       _user = User.fromJson(response.data['user']);
       _stats = response.data['stats'] ?? {};
+      _status = AuthStatus.authenticated;
       notifyListeners();
-      return true;
+      return AuthStatus.authenticated;
     } on DioException catch (e) {
-      // If it's a 401, the interceptor should have already tried to refresh.
-      // If it's still 401, then we really are logged out.
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         await logout();
-        return false;
+        return AuthStatus.unauthenticated;
       }
       
-      // For network errors (timeout, connection refused), we DON'T log out.
+      // If it's a network error or timeout, we don't log out, but we might be offline
       if (e.type == DioExceptionType.connectionTimeout || 
           e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError) {
-        return true; 
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.unknown) {
+        
+        // If we have a token but can't reach the server, we might still want to allow
+        // entry if we have cached data, but for now let's treat as offline
+        _status = AuthStatus.offline;
+        notifyListeners();
+        return AuthStatus.offline; 
       }
       
-      return false;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return AuthStatus.unauthenticated;
     } catch (e) {
-      return false;
+      // Any other error (like timeout from .timeout())
+      _status = AuthStatus.offline;
+      notifyListeners();
+      return AuthStatus.offline;
     }
   }
 }

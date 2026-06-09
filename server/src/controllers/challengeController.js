@@ -225,11 +225,8 @@ async function handleReview(submission, status, req, res) {
 
   if (status === 'approved') {
     const points = 5;
-    const recipient = await User.findById(challenge.recipient);
-    recipient.points += points;
-    await recipient.save();
 
-    // Relationship-based Streak Logic
+    // Award relationship points
     const friendRel = await Friend.findOne({
       $or: [
         { requester: challenge.creator, recipient: challenge.recipient },
@@ -239,6 +236,12 @@ async function handleReview(submission, status, req, res) {
     });
 
     if (friendRel) {
+      if (friendRel.requester.toString() === challenge.recipient.toString()) {
+        friendRel.pointsRequester += points;
+      } else {
+        friendRel.pointsRecipient += points;
+      }
+
       const today = new Date().setHours(0,0,0,0);
       const lastUpdate = friendRel.lastStreakUpdate ? new Date(friendRel.lastStreakUpdate).setHours(0,0,0,0) : null;
 
@@ -247,8 +250,6 @@ async function handleReview(submission, status, req, res) {
         const twoDaysAgo = today - (86400000 * 2);
 
         if (lastUpdate === yesterday || lastUpdate === twoDaysAgo) {
-          // Leniency: If last update was yesterday OR two days ago (to account for timezone shifts)
-          // we increment. This prevents streaks from breaking due to small timezone overlaps.
           friendRel.streak += 1;
         } else {
           friendRel.streak = 1;
@@ -258,40 +259,41 @@ async function handleReview(submission, status, req, res) {
         if (friendRel.streak > (friendRel.longestStreak || 0)) {
           friendRel.longestStreak = friendRel.streak;
         }
-        await friendRel.save();
+      }
+      await friendRel.save();
 
-        // Update recipient's user-level streak metrics
-        const allRecipientFriendships = await Friend.find({
-          $or: [{ requester: challenge.recipient }, { recipient: challenge.recipient }],
+      // Update recipient's user-level streak metrics
+      const allRecipientFriendships = await Friend.find({
+        $or: [{ requester: challenge.recipient }, { recipient: challenge.recipient }],
+        status: 'accepted'
+      });
+
+      const recipient = await User.findById(challenge.recipient);
+      const bestCurrentStreak = Math.max(...allRecipientFriendships.map(f => f.streak), 0);
+      recipient.currentStreak = bestCurrentStreak;
+      if (bestCurrentStreak > (recipient.longestStreak || 0)) {
+        recipient.longestStreak = bestCurrentStreak;
+      }
+      await recipient.save();
+
+      // Also update creator's user-level streak metrics
+      const creator = await User.findById(challenge.creator);
+      if (creator) {
+        const allCreatorFriendships = await Friend.find({
+          $or: [{ requester: challenge.creator }, { recipient: challenge.creator }],
           status: 'accepted'
         });
-
-        const bestCurrentStreak = Math.max(...allRecipientFriendships.map(f => f.streak), 0);
-        recipient.currentStreak = bestCurrentStreak;
-        if (bestCurrentStreak > (recipient.longestStreak || 0)) {
-          recipient.longestStreak = bestCurrentStreak;
+        const creatorBestStreak = Math.max(...allCreatorFriendships.map(f => f.streak), 0);
+        creator.currentStreak = creatorBestStreak;
+        if (creatorBestStreak > (creator.longestStreak || 0)) {
+          creator.longestStreak = creatorBestStreak;
         }
-        await recipient.save();
-
-        // Also update creator's user-level streak metrics (since streaks are mutual)
-        const creator = await User.findById(challenge.creator);
-        if (creator) {
-          const allCreatorFriendships = await Friend.find({
-            $or: [{ requester: challenge.creator }, { recipient: challenge.creator }],
-            status: 'accepted'
-          });
-          const creatorBestStreak = Math.max(...allCreatorFriendships.map(f => f.streak), 0);
-          creator.currentStreak = creatorBestStreak;
-          if (creatorBestStreak > (creator.longestStreak || 0)) {
-            creator.longestStreak = creatorBestStreak;
-          }
-          await creator.save();
-        }
+        await creator.save();
       }
     }
 
     await PointTransaction.create({
-      user: recipient._id,
+      user: challenge.recipient,
       amount: points,
       type: 'challenge_reward',
       relatedId: challenge._id,

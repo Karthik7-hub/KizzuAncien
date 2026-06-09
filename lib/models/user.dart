@@ -6,7 +6,7 @@ class User {
   final String gender;
   final String? profileImageUrl;
   final String? avatarType;
-  final int points;
+  final int? relationshipPoints;
   final int currentStreak;
   final int longestStreak;
   final int? sharedStreak;
@@ -22,7 +22,7 @@ class User {
     required this.gender,
     this.profileImageUrl,
     this.avatarType,
-    required this.points,
+    this.relationshipPoints,
     required this.currentStreak,
     required this.longestStreak,
     this.sharedStreak,
@@ -40,13 +40,47 @@ class User {
       gender: json['gender'] ?? 'male',
       profileImageUrl: json['profileImageUrl'],
       avatarType: json['avatarType'],
-      points: json['points'] ?? 0,
+      relationshipPoints: json['relationshipPoints'],
       currentStreak: json['currentStreak'] ?? 0,
       longestStreak: json['longestStreak'] ?? 0,
       sharedStreak: json['sharedStreak'],
       longestSharedStreak: json['longestSharedStreak'],
       lastStreakUpdate: json['lastStreakUpdate'] != null ? DateTime.parse(json['lastStreakUpdate']) : null,
       lastChallengeCompletedAt: json['lastChallengeCompletedAt'] != null ? DateTime.parse(json['lastChallengeCompletedAt']) : null,
+    );
+  }
+
+  User copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? username,
+    String? gender,
+    String? profileImageUrl,
+    String? avatarType,
+    int? relationshipPoints,
+    int? currentStreak,
+    int? longestStreak,
+    int? sharedStreak,
+    int? longestSharedStreak,
+    DateTime? lastStreakUpdate,
+    DateTime? lastChallengeCompletedAt,
+  }) {
+    return User(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      username: username ?? this.username,
+      gender: gender ?? this.gender,
+      profileImageUrl: profileImageUrl ?? this.profileImageUrl,
+      avatarType: avatarType ?? this.avatarType,
+      relationshipPoints: relationshipPoints ?? this.relationshipPoints,
+      currentStreak: currentStreak ?? this.currentStreak,
+      longestStreak: longestStreak ?? this.longestStreak,
+      sharedStreak: sharedStreak ?? this.sharedStreak,
+      longestSharedStreak: longestSharedStreak ?? this.longestSharedStreak,
+      lastStreakUpdate: lastStreakUpdate ?? this.lastStreakUpdate,
+      lastChallengeCompletedAt: lastChallengeCompletedAt ?? this.lastChallengeCompletedAt,
     );
   }
 }

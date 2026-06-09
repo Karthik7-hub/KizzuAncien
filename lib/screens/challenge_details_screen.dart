@@ -145,35 +145,59 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                     const SizedBox(height: 48),
                     _buildSectionTitle('VERIFICATION'),
                     const SizedBox(height: 16),
-                    if (currentChallenge.submission!['createdAt'] != null)
-                      _buildInfoRow('Submitted', DateFormat('MMM d, h:mm a').format(DateTime.parse(currentChallenge.submission!['createdAt']))),
                     
-                    _buildInfoRow('Type', currentChallenge.submission!['proofUrl'] != null ? 'Media Evidence' : 'Text Verification'),
-                    
-                    if (currentChallenge.submission!['proofUrl'] != null) ...[
-                      const SizedBox(height: 16),
-                      const Text('EVIDENCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
-                      const SizedBox(height: 12),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: CachedNetworkImage(
-                          imageUrl: currentChallenge.submission!['proofUrl'],
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(height: 200, color: AppTheme.zinc950, child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))),
-                          errorWidget: (context, url, error) => Container(height: 100, color: AppTheme.zinc900, child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700)),
-                        ),
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: AppTheme.zinc900.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(24),
+                        border: Border.all(color: AppTheme.zinc800),
                       ),
-                      const SizedBox(height: 24),
-                    ],
-                    if (currentChallenge.submission!['proofText'] != null && currentChallenge.submission!['proofText'].toString().isNotEmpty) ...[
-                      const Text('RESPONSE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
-                      const SizedBox(height: 8),
-                      Text(
-                        currentChallenge.submission!['proofText'].toString(),
-                        style: const TextStyle(color: AppTheme.white, fontSize: 14, height: 1.6),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                currentChallenge.submission!['proofUrl'] != null ? 'MEDIA EVIDENCE' : 'TEXT VERIFICATION',
+                                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1),
+                              ),
+                              if (currentChallenge.submission!['createdAt'] != null)
+                                Text(
+                                  timeago.format(DateTime.parse(currentChallenge.submission!['createdAt'])),
+                                  style: const TextStyle(fontSize: 10, color: AppTheme.zinc700),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          
+                          if (currentChallenge.submission!['proofUrl'] != null) ...[
+                            GestureDetector(
+                              onTap: () => _showFullScreenImage(context, currentChallenge.submission!['proofUrl']),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: CachedNetworkImage(
+                                  imageUrl: currentChallenge.submission!['proofUrl'],
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  placeholder: (context, url) => Container(height: 200, color: AppTheme.zinc950, child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))),
+                                  errorWidget: (context, url, error) => Container(height: 100, color: AppTheme.zinc900, child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700)),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                          
+                          if (currentChallenge.submission!['proofText'] != null && currentChallenge.submission!['proofText'].toString().isNotEmpty) ...[
+                            Text(
+                              currentChallenge.submission!['proofText'].toString(),
+                              style: const TextStyle(color: AppTheme.white, fontSize: 15, height: 1.6),
+                            ),
+                          ],
+                        ],
                       ),
-                    ],
+                    ),
                   ],
 
                   const SizedBox(height: 48),
@@ -442,6 +466,36 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           foregroundColor: AppTheme.black,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           elevation: 0,
+        ),
+      ),
+    );
+  }
+
+  void _showFullScreenImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(LucideIcons.x, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
         ),
       ),
     );

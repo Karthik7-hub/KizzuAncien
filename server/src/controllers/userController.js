@@ -128,7 +128,8 @@ exports.getUserProfile = async (req, res, next) => {
     res.json({
       user,
       relationshipStatus,
-      requestId: relationship ? relationship._id : null
+      requestId: relationship ? relationship._id : null,
+      relationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRequester : relationship.pointsRecipient) : 0
     });
   } catch (error) {
     next(error);
@@ -145,7 +146,7 @@ exports.searchUsers = async (req, res, next) => {
     } : {};
 
     const users = await User.find({ ...keyword, _id: { $ne: req.user._id } })
-      .select('name username profileImageUrl gender avatarType points streak')
+      .select('name username profileImageUrl gender avatarType streak')
       .limit(10);
     res.json(users);
   } catch (error) {

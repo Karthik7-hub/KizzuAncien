@@ -10,7 +10,6 @@ const userSchema = new mongoose.Schema({
   gender: { type: String, enum: ['male', 'female', 'other'], default: 'male' },
   avatarType: { type: String, enum: ['male_default', 'female_default'], default: 'male_default' },
   profileImageUrl: { type: String, default: null },
-  points: { type: Number, default: 0 },
   currentStreak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
   lastCompletedDate: { type: Date },

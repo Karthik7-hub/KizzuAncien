@@ -121,7 +121,8 @@ exports.getFriends = async (req, res, next) => {
         sharedStreak: f.streak,
         longestSharedStreak: f.longestStreak,
         lastStreakUpdate: f.lastStreakUpdate,
-        lastChallengeCompletedAt: lastChallenge ? lastChallenge.updatedAt : null
+        lastChallengeCompletedAt: lastChallenge ? lastChallenge.updatedAt : null,
+        relationshipPoints: isRequester ? f.pointsRequester : f.pointsRecipient
       };
     }));
 

@@ -10,9 +10,23 @@ exports.sendTruth = async (req, res, next) => {
     const { recipientId, question } = req.body;
     const pointsRequired = 50;
 
-    const user = await User.findById(req.user._id);
-    if (user.points < pointsRequired) {
-      return res.status(400).json({ message: 'Insufficient points' });
+    const friendRel = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: recipientId },
+        { requester: recipientId, recipient: req.user._id }
+      ],
+      status: 'accepted'
+    });
+
+    if (!friendRel) {
+      return res.status(400).json({ message: 'Must be friends to send a Truth' });
+    }
+
+    const isRequester = friendRel.requester.toString() === req.user._id.toString();
+    const currentPoints = isRequester ? friendRel.pointsRequester : friendRel.pointsRecipient;
+
+    if (currentPoints < pointsRequired) {
+      return res.status(400).json({ message: 'Insufficient relationship points' });
     }
 
     const truth = await Truth.create({
@@ -22,8 +36,12 @@ exports.sendTruth = async (req, res, next) => {
       pointsSpent: pointsRequired
     });
 
-    user.points -= pointsRequired;
-    await user.save();
+    if (isRequester) {
+      friendRel.pointsRequester -= pointsRequired;
+    } else {
+      friendRel.pointsRecipient -= pointsRequired;
+    }
+    await friendRel.save();
 
     await PointTransaction.create({
       user: req.user._id,
@@ -63,9 +81,23 @@ exports.sendDare = async (req, res, next) => {
     const { recipientId, task } = req.body;
     const pointsRequired = 100;
 
-    const user = await User.findById(req.user._id);
-    if (user.points < pointsRequired) {
-      return res.status(400).json({ message: 'Insufficient points' });
+    const friendRel = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: recipientId },
+        { requester: recipientId, recipient: req.user._id }
+      ],
+      status: 'accepted'
+    });
+
+    if (!friendRel) {
+      return res.status(400).json({ message: 'Must be friends to send a Dare' });
+    }
+
+    const isRequester = friendRel.requester.toString() === req.user._id.toString();
+    const currentPoints = isRequester ? friendRel.pointsRequester : friendRel.pointsRecipient;
+
+    if (currentPoints < pointsRequired) {
+      return res.status(400).json({ message: 'Insufficient relationship points' });
     }
 
     const dare = await Dare.create({
@@ -75,8 +107,12 @@ exports.sendDare = async (req, res, next) => {
       pointsSpent: pointsRequired
     });
 
-    user.points -= pointsRequired;
-    await user.save();
+    if (isRequester) {
+      friendRel.pointsRequester -= pointsRequired;
+    } else {
+      friendRel.pointsRecipient -= pointsRequired;
+    }
+    await friendRel.save();
 
     await PointTransaction.create({
       user: req.user._id,

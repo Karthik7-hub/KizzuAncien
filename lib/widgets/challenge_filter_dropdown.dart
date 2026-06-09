@@ -20,7 +20,10 @@ class ChallengeFilterDropdown extends StatelessWidget {
       initialValue: selectedCategory,
       onSelected: onCategoryChanged,
       color: AppTheme.zinc950,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), border: Border.all(color: AppTheme.zinc900)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12), 
+        side: const BorderSide(color: AppTheme.zinc900),
+      ),
       itemBuilder: (context) => [
         _buildItem(ChallengeCategory.all, 'All Challenges', LucideIcons.layers),
         _buildItem(ChallengeCategory.received, 'Received', LucideIcons.arrowDownLeft),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../screens/challenge_details_screen.dart';
@@ -44,7 +45,20 @@ class ChallengeCard extends StatelessWidget {
           border: Border.all(color: AppTheme.zinc800),
         ),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (challenge.coverImage != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: CachedNetworkImage(
+                  imageUrl: challenge.coverImage!,
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             Row(
               children: [
                 Expanded(

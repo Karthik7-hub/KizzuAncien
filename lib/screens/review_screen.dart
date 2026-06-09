@@ -169,49 +169,57 @@ class _ReviewScreenState extends State<ReviewScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (proofUrl != null)
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.zinc900),
-              color: AppTheme.zinc950,
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
-              child: CachedNetworkImage(
-                imageUrl: proofUrl,
-                width: double.infinity,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  height: 200,
-                  color: AppTheme.zinc950,
-                  child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
-                ),
-                errorWidget: (context, url, error) => Container(
-                  height: 100,
-                  color: AppTheme.zinc950,
-                  child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
-                ),
-              ),
-            ),
+        Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: AppTheme.zinc900.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: AppTheme.zinc800),
           ),
-        if (proofText != null && proofText.isNotEmpty)
-          Container(
-            width: double.infinity,
-            margin: EdgeInsets.only(top: proofUrl != null ? 16 : 0),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.zinc900.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.zinc800),
-            ),
-            child: Text(
-              proofText,
-              style: const TextStyle(color: AppTheme.white, fontSize: 15, height: 1.6),
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (proofUrl != null) ...[
+                GestureDetector(
+                  onTap: () => _showFullScreenImage(context, proofUrl),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: AppTheme.zinc900),
+                      color: AppTheme.zinc950,
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: CachedNetworkImage(
+                        imageUrl: proofUrl,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Container(
+                          height: 200,
+                          color: AppTheme.zinc950,
+                          child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          height: 100,
+                          color: AppTheme.zinc950,
+                          child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (proofText != null && proofText.isNotEmpty) const SizedBox(height: 20),
+              ],
+              if (proofText != null && proofText.isNotEmpty)
+                Text(
+                  proofText,
+                  style: const TextStyle(color: AppTheme.white, fontSize: 16, height: 1.6),
+                ),
+              if (proofUrl == null && (proofText == null || proofText.isEmpty))
+                const Text('No evidence provided.', style: TextStyle(color: AppTheme.zinc600, fontStyle: FontStyle.italic)),
+            ],
           ),
-        if (proofUrl == null && (proofText == null || proofText.isEmpty))
-          const Text('No evidence provided in this submission.', style: TextStyle(color: AppTheme.zinc600, fontStyle: FontStyle.italic)),
+        ),
       ],
     );
   }
@@ -282,5 +290,35 @@ class _ReviewScreenState extends State<ReviewScreen> {
         });
       }
     }
+  }
+
+  void _showFullScreenImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: CachedNetworkImage(
+                imageUrl: url,
+                fit: BoxFit.contain,
+                width: double.infinity,
+                height: double.infinity,
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 20,
+              child: IconButton(
+                icon: const Icon(LucideIcons.x, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

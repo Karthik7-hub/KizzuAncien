@@ -58,7 +58,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                     child: Column(
                       children: [
                         const Text(
-                          'YOUR BALANCE',
+                          'AVAILABLE POINTS',
                           style: TextStyle(color: AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
                         ),
                         const SizedBox(height: 12),
@@ -68,7 +68,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                             const Icon(LucideIcons.award, size: 28, color: Colors.amber),
                             const SizedBox(width: 12),
                             Text(
-                              '${user?.points ?? 0}',
+                              '${widget.recipient.relationshipPoints ?? 0}',
                               style: const TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.bold,

@@ -34,6 +34,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
   String _relationshipStatus = 'NOT_FRIENDS';
   String? _requestId;
+  int _relationshipPoints = 0;
   bool _isActionLoading = false;
 
   @override
@@ -51,6 +52,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       setState(() {
         _relationshipStatus = profileData['relationshipStatus'] ?? 'NOT_FRIENDS';
         _requestId = profileData['requestId'];
+        _relationshipPoints = profileData['relationshipPoints'] ?? 0;
         _history = challenges;
         _isLoading = false;
       });
@@ -141,9 +143,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'SHARED STREAK', LucideIcons.zap, AppTheme.white),
+                      _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'STREAK', LucideIcons.zap, AppTheme.white),
                       const SizedBox(width: 24),
-                      _buildMiniStat('${currentFriend.longestSharedStreak ?? 0}', 'LONGEST', LucideIcons.award, AppTheme.white),
+                      _buildMiniStat('$_relationshipPoints', 'POINTS', LucideIcons.award, AppTheme.white),
                     ],
                   ),
                   if (currentFriend.lastChallengeCompletedAt != null) ...[
@@ -399,25 +401,79 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       child: Column(
         children: [
           if (_relationshipStatus == 'FRIENDS') ...[
-            CustomButton(
-              text: 'Send New Challenge',
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: widget.friend))),
-              backgroundColor: AppTheme.white,
-              textColor: AppTheme.black,
-              icon: const Icon(LucideIcons.plus, size: 20),
+            _buildActionCard(
+              'Challenge',
+              'Send a new challenge to your friend.',
+              LucideIcons.plus,
+              AppTheme.white,
+              AppTheme.black,
+              () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: widget.friend))),
             ),
             const SizedBox(height: 16),
-            CustomButton(
-              text: 'Send Truth or Dare',
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(recipient: widget.friend))),
-              backgroundColor: AppTheme.zinc900,
-              textColor: AppTheme.white,
+            _buildActionCard(
+              'Truth',
+              'Spend 50 points to ask a question.',
+              LucideIcons.helpCircle,
+              AppTheme.zinc900,
+              AppTheme.white,
+              () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(
+                recipient: widget.friend.copyWith(relationshipPoints: _relationshipPoints)
+              ))),
               borderColor: AppTheme.zinc800,
-              icon: const Icon(LucideIcons.zap, size: 20),
+            ),
+            const SizedBox(height: 16),
+            _buildActionCard(
+              'Dare',
+              'Spend 100 points to assign a task.',
+              LucideIcons.zap,
+              AppTheme.zinc900,
+              AppTheme.white,
+              () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(
+                recipient: widget.friend.copyWith(relationshipPoints: _relationshipPoints)
+              ))),
+              borderColor: AppTheme.zinc800,
             ),
           ] else
             _buildRelationshipButton(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard(String title, String desc, IconData icon, Color bg, Color fg, VoidCallback onTap, {Color? borderColor}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(24),
+          border: borderColor != null ? Border.all(color: borderColor) : null,
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: fg.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, color: fg, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: TextStyle(color: fg, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text(desc, style: TextStyle(color: fg.withValues(alpha: 0.6), fontSize: 12)),
+                ],
+              ),
+            ),
+            Icon(LucideIcons.chevronRight, color: fg.withValues(alpha: 0.3), size: 20),
+          ],
+        ),
       ),
     );
   }

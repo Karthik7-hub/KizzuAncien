@@ -10,7 +10,11 @@ import '../providers/notification_provider.dart';
 import 'home_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
+import 'all_challenges_screen.dart';
+import 'create_challenge_screen.dart';
+import 'offline_screen.dart';
 import '../theme/app_theme.dart';
+import '../providers/auth_provider.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -25,6 +29,8 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
+    AllChallengesScreen(),
+    CreateChallengeScreen(),
     FriendsScreen(),
     ProfileScreen(),
   ];
@@ -71,6 +77,12 @@ class _MainScreenState extends State<MainScreen> {
   Widget build(BuildContext context) {
     final navigationProvider = context.watch<NavigationProvider>();
     final notificationProvider = context.watch<NotificationProvider>();
+    final authProvider = context.watch<AuthProvider>();
+    
+    if (authProvider.status == AuthStatus.offline) {
+      return OfflineScreen(onRetry: () => authProvider.checkAuth());
+    }
+
     final hasUnread = notificationProvider.notifications.any((n) => !n.read);
 
     return PopScope(
@@ -169,8 +181,10 @@ class _MainScreenState extends State<MainScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildNavItem(0, LucideIcons.home),
-                      _buildNavItem(1, LucideIcons.users),
-                      _buildNavItem(2, LucideIcons.user),
+                      _buildNavItem(1, LucideIcons.layoutList),
+                      _buildNavItem(2, LucideIcons.plusCircle),
+                      _buildNavItem(3, LucideIcons.users),
+                      _buildNavItem(4, LucideIcons.user),
                     ],
                   ),
                 ),
@@ -185,6 +199,7 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildNavItem(int index, IconData icon) {
     final navigationProvider = context.watch<NavigationProvider>();
     final isSelected = navigationProvider.currentIndex == index;
+    final bool isCenter = index == 2;
 
     return GestureDetector(
       onTap: () => _onTabTapped(index),
@@ -192,16 +207,19 @@ class _MainScreenState extends State<MainScreen> {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
-        width: 50,
-        height: 50,
+        width: isCenter ? 64 : 50,
+        height: isCenter ? 64 : 50,
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.white : Colors.transparent,
+          color: isSelected ? AppTheme.white : (isCenter ? AppTheme.zinc800 : Colors.transparent),
           shape: BoxShape.circle,
+          boxShadow: isCenter && isSelected ? [
+            BoxShadow(color: AppTheme.white.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 2)
+          ] : null,
         ),
         child: Icon(
           icon,
           color: isSelected ? AppTheme.black : AppTheme.zinc500,
-          size: 22,
+          size: isCenter ? 32 : 22,
         ),
       ),
     );
