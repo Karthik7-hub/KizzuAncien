@@ -23,7 +23,7 @@ class NotificationService {
 
     await _notificationsPlugin.initialize(
       initializationSettings,
-      onDidReceiveNotificationResponse: (details) {
+      onDidReceiveNotificationResponse: (NotificationResponse details) {
         if (details.payload != null) {
           final context = navigatorKey.currentContext;
           if (context == null) return;

@@ -42,6 +42,9 @@
 **/.pub/
 **/build/
 
+# Build Outputs
+downloads/
+
 # Node/Backend
 **/node_modules/
 **/server/.env

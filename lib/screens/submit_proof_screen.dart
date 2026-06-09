@@ -9,6 +9,7 @@ import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/avatar_widget.dart';
+import '../utils/logger.dart';
 
 class SubmitProofScreen extends StatefulWidget {
   final Challenge challenge;
@@ -36,7 +37,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
         });
       }
     } catch (e) {
-      debugPrint('Error picking image: $e');
+      AppLogger.error('Error picking image', e);
     }
   }
 

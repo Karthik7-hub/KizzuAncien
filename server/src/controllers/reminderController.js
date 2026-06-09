@@ -126,3 +126,23 @@ exports.resetBrokenStreaks = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Background task to expire overdue challenges.
+ */
+exports.checkExpiredChallenges = async (req, res, next) => {
+  try {
+    const today = new Date();
+    const result = await Challenge.updateMany(
+      {
+        status: 'pending',
+        deadline: { $lt: today }
+      },
+      { $set: { status: 'expired' } }
+    );
+
+    res.json({ message: 'Expired challenges processed', modified: result.modifiedCount });
+  } catch (error) {
+    next(error);
+  }
+};
