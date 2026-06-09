@@ -8,6 +8,7 @@ import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
 import '../providers/auth_provider.dart';
+import '../providers/challenge_provider.dart';
 import 'submit_proof_screen.dart';
 import 'review_screen.dart';
 
@@ -18,8 +19,16 @@ class ChallengeDetailsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
-    final bool isRecipient = challenge.recipient.id == user?.id;
-    final bool isCreator = challenge.creator.id == user?.id;
+    final challengeProvider = context.watch<ChallengeProvider>();
+    
+    // Always use the latest data from the provider if available
+    final currentChallenge = challengeProvider.challenges.firstWhere(
+      (c) => c.id == challenge.id,
+      orElse: () => challenge,
+    );
+
+    final bool isRecipient = currentChallenge.recipient.id == user?.id;
+    final bool isCreator = currentChallenge.creator.id == user?.id;
     final textTheme = Theme.of(context).textTheme;
 
     if (user == null) {
@@ -45,17 +54,17 @@ class ChallengeDetailsScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _buildHeader(challenge),
+            _buildHeader(currentChallenge),
             const SizedBox(height: 32),
             
             Text(
-              challenge.title,
+              currentChallenge.title,
               style: textTheme.displayMedium?.copyWith(fontSize: 28, letterSpacing: -0.5),
             ),
-            if (challenge.description != null && challenge.description!.isNotEmpty) ...[
+            if (currentChallenge.description != null && currentChallenge.description!.isNotEmpty) ...[
               const SizedBox(height: 12),
               Text(
-                challenge.description!,
+                currentChallenge.description!,
                 style: const TextStyle(color: AppTheme.zinc500, fontSize: 15, height: 1.5),
               ),
             ],
@@ -63,60 +72,66 @@ class ChallengeDetailsScreen extends StatelessWidget {
             const SizedBox(height: 48),
             _buildSectionTitle('PARTICIPANTS'),
             const SizedBox(height: 16),
-            _buildParticipantRow('Creator', challenge.creator),
+            _buildParticipantRow('Creator', currentChallenge.creator),
             const SizedBox(height: 12),
-            _buildParticipantRow('Recipient', challenge.recipient),
+            _buildParticipantRow('Recipient', currentChallenge.recipient),
             
             const SizedBox(height: 48),
             _buildSectionTitle('STATUS & TIMELINE'),
             const SizedBox(height: 16),
-            _buildInfoRow('Current Status', challenge.status.toUpperCase(), isValueBold: true),
-            _buildInfoRow('Created On', DateFormat('MMM d, yyyy').format(challenge.createdAt)),
-            _buildInfoRow('Deadline', DateFormat('MMM d, h:mm a').format(challenge.deadline)),
+            _buildInfoRow('Current Status', currentChallenge.status.toUpperCase(), isValueBold: true),
+            _buildInfoRow('Created On', DateFormat('MMM d, yyyy').format(currentChallenge.createdAt)),
+            _buildInfoRow('Deadline', DateFormat('MMM d, h:mm a').format(currentChallenge.deadline)),
             
-            if (challenge.submission != null) ...[
+            if (currentChallenge.submission != null) ...[
               const SizedBox(height: 48),
               _buildSectionTitle('VERIFICATION'),
               const SizedBox(height: 16),
-              if (challenge.submission!['proofUrl'] != null) ...[
+              if (currentChallenge.submission!['createdAt'] != null)
+                _buildInfoRow('Submitted', DateFormat('MMM d, h:mm a').format(DateTime.parse(currentChallenge.submission!['createdAt']))),
+              
+              _buildInfoRow('Type', currentChallenge.submission!['proofUrl'] != null ? 'Media Evidence' : 'Text Verification'),
+              
+              if (currentChallenge.submission!['proofUrl'] != null) ...[
+                const SizedBox(height: 16),
                 const Text('EVIDENCE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
                 const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16),
                   child: CachedNetworkImage(
-                    imageUrl: challenge.submission!['proofUrl'],
+                    imageUrl: currentChallenge.submission!['proofUrl'],
                     width: double.infinity,
                     fit: BoxFit.cover,
                     placeholder: (context, url) => Container(height: 200, color: AppTheme.zinc950, child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2))),
-                    errorWidget: (context, url, error) => const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
+                    errorWidget: (context, url, error) => Container(height: 100, color: AppTheme.zinc900, child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700)),
                   ),
                 ),
                 const SizedBox(height: 24),
               ],
-              if (challenge.submission!['proofText'] != null && challenge.submission!['proofText'].toString().isNotEmpty) ...[
+              if (currentChallenge.submission!['proofText'] != null && currentChallenge.submission!['proofText'].toString().isNotEmpty) ...[
                 const Text('RESPONSE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
                 const SizedBox(height: 8),
                 Text(
-                  challenge.submission!['proofText'],
+                  currentChallenge.submission!['proofText'].toString(),
                   style: const TextStyle(color: AppTheme.white, fontSize: 14, height: 1.6),
                 ),
               ],
             ],
             
             const SizedBox(height: 80),
-            if (isRecipient && challenge.status == 'pending')
+            if (isRecipient && currentChallenge.status == 'pending')
               _buildPrimaryButton(
                 context,
                 'Submit Proof',
                 LucideIcons.checkCircle,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: challenge))),
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: currentChallenge))),
               ),
-            if (isCreator && challenge.status == 'submitted')
+            if (isCreator && currentChallenge.status == 'submitted')
               _buildPrimaryButton(
                 context,
                 'Review Submission',
                 LucideIcons.eye,
-                () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(challenge: challenge))),
+                () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(challenge: currentChallenge))),
               ),
             const SizedBox(height: 40),
           ],

@@ -1,5 +1,6 @@
 const Friend = require('../models/Friend');
 const User = require('../models/User');
+const Challenge = require('../models/Challenge');
 const Notification = require('../models/Notification');
 const { sendPushNotification } = require('../services/firebaseService');
 
@@ -101,9 +102,28 @@ exports.getFriends = async (req, res, next) => {
       ]
     }).populate('requester recipient', 'name username profileImageUrl gender avatarType');
 
-    const friendList = friends.map(f => {
-      return f.requester._id.toString() === userId.toString() ? f.recipient : f.requester;
-    });
+    // Fetch latest completed challenge for each friend
+    const friendList = await Promise.all(friends.map(async f => {
+      const isRequester = f.requester._id.toString() === userId.toString();
+      const friend = isRequester ? f.recipient.toObject() : f.requester.toObject();
+      const friendId = friend._id;
+
+      const lastChallenge = await Challenge.findOne({
+        status: 'approved',
+        $or: [
+          { creator: userId, recipient: friendId },
+          { creator: friendId, recipient: userId }
+        ]
+      }).sort('-updatedAt');
+
+      return {
+        ...friend,
+        sharedStreak: f.streak,
+        longestSharedStreak: f.longestStreak,
+        lastStreakUpdate: f.lastStreakUpdate,
+        lastChallengeCompletedAt: lastChallenge ? lastChallenge.updatedAt : null
+      };
+    }));
 
     // Incoming requests (Pending)
     const incoming = await Friend.find({

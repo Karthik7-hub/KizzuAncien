@@ -17,6 +17,25 @@ exports.getProfile = async (req, res, next) => {
       $or: [{ requester: userId }, { recipient: userId }]
     });
 
+    const allFriendships = await Friend.find({
+      status: 'accepted',
+      $or: [{ requester: userId }, { recipient: userId }]
+    }).populate('requester recipient', 'name');
+
+    let longestOverallStreak = 0;
+    let streakFriendName = '';
+    let activeStreaksCount = 0;
+
+    allFriendships.forEach(f => {
+      if (f.streak > 0) activeStreaksCount++;
+      // We use historical longestStreak from the relationship
+      if (f.longestStreak > longestOverallStreak) {
+        longestOverallStreak = f.longestStreak;
+        const otherUser = f.requester._id.toString() === userId.toString() ? f.recipient : f.requester;
+        streakFriendName = otherUser.name;
+      }
+    });
+
     const pointsEarnedResult = await PointTransaction.aggregate([
       { $match: { user: userId, amount: { $gt: 0 } } },
       { $group: { _id: null, total: { $sum: "$amount" } } }
@@ -35,8 +54,8 @@ exports.getProfile = async (req, res, next) => {
         friends: friendsCount,
         pointsEarned: pointsEarnedResult[0]?.total || 0,
         pointsSpent: pointsSpentResult[0]?.total || 0,
-        streak: user.streak,
-        longestStreak: user.longestStreak || user.streak // Fallback if not tracked yet
+        streak: user.currentStreak,
+        longestStreak: user.longestStreak
       }
     });
   } catch (error) {

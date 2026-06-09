@@ -7,7 +7,10 @@ const friendSchema = new mongoose.Schema({
     type: String,
     enum: ['pending', 'accepted', 'rejected'],
     default: 'pending'
-  }
+  },
+  streak: { type: Number, default: 0 },
+  longestStreak: { type: Number, default: 0 },
+  lastStreakUpdate: { type: Date },
 }, { timestamps: true });
 
 friendSchema.index({ requester: 1, recipient: 1 });

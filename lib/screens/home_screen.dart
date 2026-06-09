@@ -66,10 +66,13 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         .where((c) => c.recipient.id == user.id && c.status == 'pending')
         .toList();
 
-    final recentActivity = challengeProvider.challenges
+    // Social Feed: Chronological by updatedAt
+    final List<Challenge> recentActivity = challengeProvider.challenges
         .where((c) => c.status != 'pending')
-        .take(5)
         .toList();
+    
+    recentActivity.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final displayActivity = recentActivity.take(10).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.black,
@@ -144,10 +147,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   _buildSectionHeader('SOCIAL FEED'),
                   const SizedBox(height: 12),
                   
-                  if (recentActivity.isEmpty && !challengeProvider.isLoading)
+                  if (displayActivity.isEmpty && !challengeProvider.isLoading)
                     _buildEmptyFeed()
                   else
-                    ...recentActivity.map((c) => _ActivityItem(challenge: c)),
+                    ...displayActivity.map((c) => _ActivityItem(challenge: c)),
                   
                   const SizedBox(height: 120),
                 ]),
@@ -160,11 +163,12 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildSummaryRow(dynamic user) {
+    final stats = context.watch<AuthProvider>().stats;
     return Row(
       children: [
-        _buildMiniStat('${user.streak}', 'DAY STREAK', LucideIcons.flame, AppTheme.accent),
+        _buildMiniStat('${stats['streak'] ?? 0}', 'BEST STREAK', LucideIcons.zap, AppTheme.white),
         const SizedBox(width: 24),
-        _buildMiniStat('${user.points}', 'POINTS', LucideIcons.award, Colors.white),
+        _buildMiniStat('${stats['activeStreaks'] ?? 0}', 'ACTIVE STREAKS', LucideIcons.activity, AppTheme.white),
       ],
     );
   }

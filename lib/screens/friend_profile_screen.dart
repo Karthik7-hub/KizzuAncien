@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../models/user.dart';
 import '../models/challenge.dart';
 import '../providers/challenge_provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/friend_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
@@ -55,6 +57,14 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
+    final friendProvider = context.watch<FriendProvider>();
+    
+    // Use live friend data from provider if available
+    final currentFriend = friendProvider.friends.firstWhere(
+      (f) => f.id == widget.friend.id,
+      orElse: () => widget.friend,
+    );
+
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -74,19 +84,26 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 60),
-                  AvatarWidget(user: widget.friend, size: 80, showBorder: true),
+                  AvatarWidget(user: currentFriend, size: 80, showBorder: true),
                   const SizedBox(height: 16),
-                  Text(widget.friend.name, style: textTheme.displayMedium),
-                  Text('@${widget.friend.username}', style: textTheme.bodyMedium),
+                  Text(currentFriend.name, style: textTheme.displayMedium),
+                  Text('@${currentFriend.username}', style: textTheme.bodyMedium),
                   const SizedBox(height: 20),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      _buildMiniStat('${widget.friend.streak}', 'STREAK', LucideIcons.flame, AppTheme.accent),
+                      _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'SHARED STREAK', LucideIcons.zap, AppTheme.white),
                       const SizedBox(width: 24),
-                      _buildMiniStat('${widget.friend.points}', 'POINTS', LucideIcons.award, Colors.white),
+                      _buildMiniStat('${currentFriend.longestSharedStreak ?? 0}', 'LONGEST', LucideIcons.award, AppTheme.white),
                     ],
                   ),
+                  if (currentFriend.lastChallengeCompletedAt != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'Last completed ${timeago.format(currentFriend.lastChallengeCompletedAt!)}',
+                      style: const TextStyle(fontSize: 10, color: AppTheme.zinc600, fontWeight: FontWeight.bold),
+                    ),
+                  ],
                 ],
               ),
             ),

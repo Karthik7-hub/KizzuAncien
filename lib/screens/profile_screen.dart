@@ -136,6 +136,19 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
                         Text(user.name, style: Theme.of(context).textTheme.displayLarge),
                         const SizedBox(height: 4),
                         Text('@${user.username}', style: const TextStyle(fontSize: 15, color: AppTheme.zinc500, fontWeight: FontWeight.w500)),
+                        const SizedBox(height: 12),
+                        if (stats['streakFriend'] != null && stats['streakFriend'].toString().isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.zinc900,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              'Best streak with ${stats['streakFriend']}',
+                              style: const TextStyle(fontSize: 10, color: AppTheme.zinc400, fontWeight: FontWeight.bold),
+                            ),
+                          ),
                       ],
                     ),
                   ),
@@ -151,9 +164,9 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
                     children: [
-                      _buildStatCard(stats['completed']?.toString() ?? '0', 'COMPLETED', LucideIcons.checkCircle),
-                      _buildStatCard(stats['streak']?.toString() ?? '0', 'STREAK', LucideIcons.flame, color: AppTheme.accent),
-                      _buildStatCard(stats['pointsEarned']?.toString() ?? '0', 'POINTS', LucideIcons.award),
+                      _buildStatCard(stats['longestStreak']?.toString() ?? '0', 'LONGEST STREAK', LucideIcons.zap),
+                      _buildStatCard(stats['streak']?.toString() ?? '0', 'CURRENT STREAK', LucideIcons.activity),
+                      _buildStatCard(stats['pointsEarned']?.toString() ?? '0', 'TOTAL POINTS', LucideIcons.award),
                       _buildStatCard(stats['friends']?.toString() ?? '0', 'FRIENDS', LucideIcons.users),
                     ],
                   ),
