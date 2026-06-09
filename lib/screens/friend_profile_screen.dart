@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../models/user.dart';
 import '../models/challenge.dart';
 import '../providers/challenge_provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
@@ -22,11 +23,10 @@ class FriendProfileScreen extends StatefulWidget {
 class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<Challenge> _history = [];
-  List<Challenge> _filteredHistory = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _sortBy = 'newest';
-  String _filterStatus = 'all';
+  String _sortBy = 'newest'; // newest, oldest, updated, alphabetical
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -40,43 +40,21 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     if (mounted) {
       setState(() {
         _history = challenges;
-        _applyFilters();
         _isLoading = false;
       });
     }
   }
 
-  void _applyFilters() {
-    List<Challenge> filtered = _history.where((c) {
-      final matchesSearch = c.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (c.description?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false);
-      
-      final matchesStatus = _filterStatus == 'all' || c.status == _filterStatus;
-      
-      return matchesSearch && matchesStatus;
-    }).toList();
-
-    if (_sortBy == 'newest') {
-      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    } else if (_sortBy == 'oldest') {
-      filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
-    } else if (_sortBy == 'status') {
-      filtered.sort((a, b) => a.status.compareTo(b.status));
-    }
-
-    setState(() {
-      _filteredHistory = filtered;
-    });
-  }
-
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -87,6 +65,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
             backgroundColor: AppTheme.black,
             expandedHeight: 280,
             pinned: true,
+            leading: IconButton(
+              icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
+              onPressed: () => Navigator.pop(context),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -129,7 +111,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildChallengesTab(),
+            _buildChallengesTab(user),
             _buildActionsTab(),
           ],
         ),
@@ -152,143 +134,188 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     );
   }
 
-  Widget _buildChallengesTab() {
+  Widget _buildChallengesTab(User? user) {
     if (_isLoading) {
       return const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2));
     }
 
-    return Column(
-      children: [
-        if (_history.isNotEmpty) _buildFilterBar(),
-        Expanded(
-          child: _filteredHistory.isEmpty
-              ? _buildEmptyState()
-              : ListView.builder(
-                  padding: const EdgeInsets.all(AppTheme.padding),
-                  itemCount: _filteredHistory.length,
-                  itemBuilder: (context, index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ChallengeCard(challenge: _filteredHistory[index], showParticipant: false),
+    if (_history.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(LucideIcons.history, size: 48, color: AppTheme.zinc900),
+            SizedBox(height: 16),
+            Text('No shared history yet.', style: TextStyle(color: AppTheme.zinc700, fontSize: 13)),
+          ],
+        ),
+      );
+    }
+
+    // 1. Filter
+    List<Challenge> filtered = _history.where((c) {
+      final query = _searchQuery.toLowerCase();
+      return c.title.toLowerCase().contains(query) ||
+          (c.description?.toLowerCase().contains(query) ?? false);
+    }).toList();
+
+    // 2. Sort
+    if (_sortBy == 'newest') {
+      filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    } else if (_sortBy == 'oldest') {
+      filtered.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    } else if (_sortBy == 'updated') {
+      filtered.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    } else if (_sortBy == 'alphabetical') {
+      filtered.sort((a, b) => a.title.compareTo(b.title));
+    }
+
+    // 3. Group
+    final pendingReview = filtered
+        .where((c) => c.creator.id == user?.id && c.status == 'submitted')
+        .toList();
+
+    final myActive = filtered
+        .where((c) => c.recipient.id == user?.id && c.status == 'pending')
+        .toList();
+
+    final othersActive = filtered
+        .where((c) => c.creator.id == user?.id && c.status == 'pending')
+        .toList();
+
+    final completed = filtered
+        .where((c) => c.status == 'approved' || c.status == 'rejected')
+        .toList();
+
+    return RefreshIndicator(
+      onRefresh: _loadHistory,
+      color: AppTheme.white,
+      backgroundColor: AppTheme.zinc950,
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(AppTheme.padding),
+        physics: const AlwaysScrollableScrollPhysics(),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildToolbar(),
+            const SizedBox(height: 32),
+
+            if (pendingReview.isNotEmpty) ...[
+              _buildSectionSubHeader('PENDING REVIEW', color: AppTheme.white),
+              const SizedBox(height: 16),
+              ...pendingReview.map((c) => _buildChallengeItem(c)),
+              const SizedBox(height: 32),
+            ],
+
+            if (myActive.isNotEmpty) ...[
+              _buildSectionSubHeader('MY ACTIVE'),
+              const SizedBox(height: 16),
+              ...myActive.map((c) => _buildChallengeItem(c)),
+              const SizedBox(height: 32),
+            ],
+
+            if (othersActive.isNotEmpty) ...[
+              _buildSectionSubHeader('OTHERS ACTIVE'),
+              const SizedBox(height: 16),
+              ...othersActive.map((c) => _buildChallengeItem(c)),
+              const SizedBox(height: 32),
+            ],
+
+            if (completed.isNotEmpty) ...[
+              _buildSectionSubHeader('COMPLETED'),
+              const SizedBox(height: 16),
+              ...completed.map((c) => _buildChallengeItem(c)),
+            ],
+
+            if (filtered.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 80),
+                child: Center(
+                  child: Text(
+                    'No challenges matching "$_searchQuery"',
+                    style: const TextStyle(color: AppTheme.zinc700, fontSize: 13),
                   ),
                 ),
+              ),
+
+            const SizedBox(height: 80),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildToolbar() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) => setState(() => _searchQuery = value),
+                style: const TextStyle(color: AppTheme.white, fontSize: 13),
+                decoration: InputDecoration(
+                  hintText: 'Search history...',
+                  hintStyle: const TextStyle(color: AppTheme.zinc700),
+                  prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppTheme.zinc700),
+                  filled: true,
+                  fillColor: AppTheme.zinc950,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppTheme.zinc900),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            PopupMenuButton<String>(
+              icon: const Icon(LucideIcons.listFilter, size: 20, color: AppTheme.zinc600),
+              color: AppTheme.zinc950,
+              onSelected: (value) => setState(() => _sortBy = value),
+              itemBuilder: (context) => [
+                _buildSortItem('newest', 'Newest First'),
+                _buildSortItem('oldest', 'Oldest First'),
+                _buildSortItem('updated', 'Recently Updated'),
+                _buildSortItem('alphabetical', 'Alphabetical'),
+              ],
+            ),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildFilterBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(AppTheme.padding, 12, AppTheme.padding, 0),
-      child: Column(
-        children: [
-          TextField(
-            onChanged: (value) {
-              _searchQuery = value;
-              _applyFilters();
-            },
-            style: const TextStyle(color: AppTheme.white, fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'Search challenges...',
-              hintStyle: const TextStyle(color: AppTheme.zinc600),
-              prefixIcon: const Icon(LucideIcons.search, size: 18, color: AppTheme.zinc600),
-              filled: true,
-              fillColor: AppTheme.zinc950,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.zinc900),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: AppTheme.zinc900),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterChip('All', 'all'),
-                const SizedBox(width: 8),
-                _buildFilterChip('In Progress', 'pending'),
-                const SizedBox(width: 8),
-                _buildFilterChip('Review', 'submitted'),
-                const SizedBox(width: 8),
-                _buildFilterChip('Completed', 'approved'),
-                const SizedBox(width: 16),
-                Container(width: 1, height: 20, color: AppTheme.zinc800),
-                const SizedBox(width: 16),
-                _buildSortDropdown(),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChip(String label, String status) {
-    final isSelected = _filterStatus == status;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _filterStatus = status);
-        _applyFilters();
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? AppTheme.white : AppTheme.zinc950,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: isSelected ? AppTheme.white : AppTheme.zinc900),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.bold,
-            color: isSelected ? AppTheme.black : AppTheme.zinc500,
-          ),
+  PopupMenuItem<String> _buildSortItem(String value, String label) {
+    final isSelected = _sortBy == value;
+    return PopupMenuItem(
+      value: value,
+      child: Text(
+        label,
+        style: TextStyle(
+          color: isSelected ? AppTheme.white : AppTheme.zinc500,
+          fontSize: 12,
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
       ),
     );
   }
 
-  Widget _buildSortDropdown() {
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<String>(
-        value: _sortBy,
-        dropdownColor: AppTheme.zinc950,
-        icon: const Icon(LucideIcons.arrowUpDown, size: 14, color: AppTheme.zinc500),
-        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.zinc500),
-        items: const [
-          DropdownMenuItem(value: 'newest', child: Text('Newest')),
-          DropdownMenuItem(value: 'oldest', child: Text('Oldest')),
-          DropdownMenuItem(value: 'status', child: Text('Status')),
-        ],
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _sortBy = value);
-            _applyFilters();
-          }
-        },
-      ),
+  Widget _buildSectionSubHeader(String title, {Color color = AppTheme.zinc700}) {
+    return Row(
+      children: [
+        Container(width: 2, height: 10, decoration: BoxDecoration(color: color)),
+        const SizedBox(width: 8),
+        Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, letterSpacing: 1.5)),
+      ],
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(LucideIcons.history, size: 48, color: AppTheme.zinc800),
-          const SizedBox(height: 16),
-          Text(
-            _searchQuery.isEmpty ? 'No shared history yet.' : 'No matches found.',
-            style: const TextStyle(color: AppTheme.zinc600),
-          ),
-        ],
-      ),
+  Widget _buildChallengeItem(Challenge challenge) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: ChallengeCard(challenge: challenge),
     );
   }
 

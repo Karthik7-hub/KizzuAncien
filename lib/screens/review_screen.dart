@@ -163,15 +163,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           isLoading: _isDeclining,
                           onPressed: (_isVerifying || _isDeclining) ? null : () async {
                             setState(() => _isDeclining = true);
-                            final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'rejected');
-                            if (!context.mounted) {
-                              return;
+                            try {
+                              final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'rejected');
+                              if (success && context.mounted) {
+                                Navigator.of(context).pop();
+                                return;
+                              }
+                            } catch (e) {
+                              // Error handled by provider logging
                             }
-                            if (success) {
-                              Navigator.of(context).pop();
-                            } else {
-                              setState(() => _isDeclining = false);
-                            }
+                            if (mounted) setState(() => _isDeclining = false);
                           },
                           backgroundColor: AppTheme.zinc900,
                           textColor: AppTheme.white,
@@ -186,15 +187,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
                           isLoading: _isVerifying,
                           onPressed: (_isVerifying || _isDeclining) ? null : () async {
                             setState(() => _isVerifying = true);
-                            final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'approved');
-                            if (!context.mounted) {
-                              return;
+                            try {
+                              final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, 'approved');
+                              if (success && context.mounted) {
+                                Navigator.of(context).pop();
+                                return;
+                              }
+                            } catch (e) {
+                              // Error handled by provider logging
                             }
-                            if (success) {
-                              Navigator.of(context).pop();
-                            } else {
-                              setState(() => _isVerifying = false);
-                            }
+                            if (mounted) setState(() => _isVerifying = false);
                           },
                           backgroundColor: AppTheme.white,
                           textColor: AppTheme.black,

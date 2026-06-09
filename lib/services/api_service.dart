@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/constants.dart';
 
@@ -23,7 +22,6 @@ class ApiService {
 
     dio.interceptors.add(InterceptorsWrapper(
       onRequest: (options, handler) async {
-        debugPrint('🌐 API REQUEST[${options.method}] => ${options.baseUrl}${options.path}');
         final token = await storage.read(key: 'accessToken');
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
@@ -31,15 +29,9 @@ class ApiService {
         return handler.next(options);
       },
       onResponse: (response, handler) {
-        debugPrint('✅ API RESPONSE[${response.statusCode}]');
         return handler.next(response);
       },
       onError: (DioException e, handler) async {
-        debugPrint('❌ API ERROR: ${e.type} => ${e.message}');
-        if (e.response != null) {
-          debugPrint('❌ DATA: ${e.response?.data}');
-        }
-        
         if (e.response?.statusCode == 401) {
           final refreshToken = await storage.read(key: 'refreshToken');
           if (refreshToken != null) {
@@ -73,7 +65,6 @@ class ApiService {
               
               return handler.resolve(cloneReq);
             } catch (err) {
-              debugPrint('⚠️ Token Refresh Failed: $err');
               await storage.deleteAll();
             }
           }

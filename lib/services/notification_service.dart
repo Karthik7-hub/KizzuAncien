@@ -7,6 +7,7 @@ import '../main.dart';
 import '../providers/challenge_provider.dart';
 import '../providers/notification_provider.dart';
 import '../providers/friend_provider.dart';
+import '../providers/navigation_provider.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
@@ -23,7 +24,18 @@ class NotificationService {
     await _notificationsPlugin.initialize(
       initializationSettings,
       onDidReceiveNotificationResponse: (details) {
-        debugPrint('🔔 Notification clicked: ${details.payload}');
+        if (details.payload != null) {
+          final context = navigatorKey.currentContext;
+          if (context == null) return;
+          
+          // Basic routing logic based on payload
+          // Usually payload would be a JSON string
+          if (details.payload!.contains('challenge')) {
+             context.read<NavigationProvider>().setIndex(1);
+          } else if (details.payload!.contains('friend')) {
+             context.read<NavigationProvider>().setIndex(2);
+          }
+        }
       },
     );
 
@@ -49,8 +61,6 @@ class NotificationService {
   static void _initFcm() {
     // 1. Foreground message handler
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint('🔔 FCM Foreground Message Received: ${message.notification?.title}');
-      
       // Automatic Refresh Logic
       _triggerDataRefresh(message.data['type']);
       
@@ -60,7 +70,6 @@ class NotificationService {
 
     // 2. App opened from notification (from background/terminated)
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('🔔 App opened from notification: ${message.data}');
       _triggerDataRefresh(message.data['type']);
     });
   }
@@ -69,15 +78,29 @@ class NotificationService {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
-    debugPrint('🔄 Triggering auto-refresh for type: $type');
-
     // Always refresh notifications
     context.read<NotificationProvider>().fetchNotifications();
 
-    if (type == 'challenge_received' || type == 'challenge_update') {
-      context.read<ChallengeProvider>().fetchChallenges();
-    } else if (type == 'friend_request' || type == 'friend_accept') {
-      context.read<FriendProvider>().fetchFriends();
+    final List<String> challengeTypes = [
+      'challenge_received',
+      'challenge_update',
+      'submission_received',
+      'challenge_approved',
+      'challenge_rejected'
+    ];
+
+    final List<String> friendTypes = [
+      'friend_request',
+      'friend_accept',
+      'friend_request_accepted'
+    ];
+
+    if (type != null) {
+      if (challengeTypes.contains(type)) {
+        context.read<ChallengeProvider>().fetchChallenges();
+      } else if (friendTypes.contains(type)) {
+        context.read<FriendProvider>().fetchFriends();
+      }
     }
   }
 
@@ -85,7 +108,6 @@ class NotificationService {
     try {
       String? token = await _messaging.getToken();
       if (token != null) {
-        debugPrint('🔑 FCM Token: $token');
         await _updateTokenOnServer(token);
       }
 
@@ -94,7 +116,7 @@ class NotificationService {
         await _updateTokenOnServer(newToken);
       });
     } catch (e) {
-      debugPrint('❌ Error setting up FCM Token: $e');
+      // Silently fail token setup
     }
   }
 
@@ -102,9 +124,8 @@ class NotificationService {
     try {
       final apiService = ApiService();
       await apiService.dio.put('/users/fcm-token', data: {'fcmToken': token});
-      debugPrint('✅ FCM Token updated on server');
     } catch (e) {
-      debugPrint('⚠️ Could not update FCM Token on server (likely not logged in)');
+      // Silently fail server update (likely not logged in)
     }
   }
 
@@ -125,7 +146,6 @@ class NotificationService {
                          settings.authorizationStatus == AuthorizationStatus.authorized ||
                          settings.authorizationStatus == AuthorizationStatus.provisional;
 
-    debugPrint('🔔 Notification Status: ${settings.authorizationStatus} (Android: $androidGranted)');
     return granted;
   }
 

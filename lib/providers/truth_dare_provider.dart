@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../utils/logger.dart';
 import 'auth_provider.dart';
 
 class TruthDareProvider extends ChangeNotifier {
@@ -22,7 +23,7 @@ class TruthDareProvider extends ChangeNotifier {
       _truths = response.data['truths'];
       _dares = response.data['dares'];
     } catch (e) {
-      debugPrint('Error fetching truth/dare history: $e');
+      AppLogger.error('Error fetching truth/dare history', e);
     } finally {
       _isLoading = false;
       notifyListeners();

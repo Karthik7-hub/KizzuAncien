@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import '../models/challenge.dart';
 import '../services/api_service.dart';
+import '../utils/logger.dart';
 
 class ChallengeProvider extends ChangeNotifier {
   List<Challenge> _challenges = [];
@@ -19,7 +20,7 @@ class ChallengeProvider extends ChangeNotifier {
       final response = await _apiService.dio.get('/challenges');
       _challenges = (response.data as List).map((c) => Challenge.fromJson(c)).toList();
     } catch (e) {
-      debugPrint('Error fetching challenges: $e');
+      AppLogger.error('Error fetching challenges', e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -33,7 +34,7 @@ class ChallengeProvider extends ChangeNotifier {
       final response = await _apiService.dio.get('/challenges/shared/$friendId');
       return (response.data as List).map((c) => Challenge.fromJson(c)).toList();
     } catch (e) {
-      debugPrint('Error fetching shared challenges: $e');
+      AppLogger.error('Error fetching shared challenges', e);
       return [];
     } finally {
       _isLoading = false;
@@ -49,7 +50,7 @@ class ChallengeProvider extends ChangeNotifier {
       await fetchChallenges();
       return true;
     } catch (e) {
-      debugPrint('Error creating challenge: $e');
+      AppLogger.error('Error creating challenge', e);
       return false;
     } finally {
       _isLoading = false;
@@ -80,7 +81,7 @@ class ChallengeProvider extends ChangeNotifier {
       await fetchChallenges();
       return true;
     } catch (e) {
-      debugPrint('Error submitting proof: $e');
+      AppLogger.error('Error submitting proof', e);
       return false;
     } finally {
       _isLoading = false;
@@ -93,7 +94,7 @@ class ChallengeProvider extends ChangeNotifier {
       final response = await _apiService.dio.get('/challenges/$challengeId/submission');
       return response.data;
     } catch (e) {
-      debugPrint('Error fetching submission: $e');
+      AppLogger.error('Error fetching submission', e);
       return null;
     }
   }
@@ -109,7 +110,7 @@ class ChallengeProvider extends ChangeNotifier {
       await fetchChallenges();
       return true;
     } catch (e) {
-      debugPrint('Error reviewing submission: $e');
+      AppLogger.error('Error reviewing submission', e);
       return false;
     } finally {
       _isLoading = false;

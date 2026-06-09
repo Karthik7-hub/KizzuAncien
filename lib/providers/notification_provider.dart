@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/notification.dart';
+import '../utils/logger.dart';
 
 class NotificationProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
@@ -17,7 +18,7 @@ class NotificationProvider extends ChangeNotifier {
       final response = await _apiService.dio.get('/notifications');
       _notifications = (response.data as List).map((n) => NotificationModel.fromJson(n)).toList();
     } catch (e) {
-      debugPrint('Error fetching notifications: $e');
+      AppLogger.error('Error fetching notifications', e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -29,7 +30,7 @@ class NotificationProvider extends ChangeNotifier {
       await _apiService.dio.put('/notifications/read');
       await fetchNotifications();
     } catch (e) {
-      debugPrint('Error marking notifications as read: $e');
+      AppLogger.error('Error marking notifications as read', e);
     }
   }
 }

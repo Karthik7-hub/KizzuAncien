@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../utils/logger.dart';
 
 class FriendProvider extends ChangeNotifier {
   List<User> _friends = [];
@@ -33,7 +34,7 @@ class FriendProvider extends ChangeNotifier {
         'user': User.fromJson(o['user'])
       }).toList();
     } catch (e) {
-      debugPrint('Error fetching friends: $e');
+      AppLogger.error('Error fetching friends', e);
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -52,7 +53,7 @@ class FriendProvider extends ChangeNotifier {
       final response = await _apiService.dio.get('/users/search', queryParameters: {'search': query});
       _searchResults = (response.data as List).map((u) => User.fromJson(u)).toList();
     } catch (e) {
-      debugPrint('Error searching users: $e');
+      AppLogger.error('Error searching users', e);
     } finally {
       _isLoading = false;
       notifyListeners();

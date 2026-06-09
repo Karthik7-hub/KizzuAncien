@@ -148,14 +148,19 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
               text: 'Submit Verification',
               isLoading: context.watch<ChallengeProvider>().isLoading,
               onPressed: () async {
-                final success = await context.read<ChallengeProvider>().submitProof(
-                  widget.challenge.id,
-                  proofText: _textController.text,
-                  proofType: widget.challenge.proofType,
-                  file: _imageFile,
-                );
-                if (!context.mounted) return;
-                if (success) Navigator.of(context).pop();
+                try {
+                  final success = await context.read<ChallengeProvider>().submitProof(
+                    widget.challenge.id,
+                    proofText: _textController.text,
+                    proofType: widget.challenge.proofType,
+                    file: _imageFile,
+                  );
+                  if (success && context.mounted) {
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                   // Error handled by provider
+                }
               },
               backgroundColor: AppTheme.white,
               textColor: AppTheme.black,

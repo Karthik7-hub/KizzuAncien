@@ -270,7 +270,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
 
   Widget _buildUserItem(User user, {required String type, String? requestId}) {
     return GestureDetector(
-      onTap: type == 'friend' ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: user))) : null,
+      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => FriendProfileScreen(friend: user))),
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),

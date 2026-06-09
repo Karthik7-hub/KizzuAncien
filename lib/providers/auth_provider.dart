@@ -161,7 +161,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       await _apiService.dio.put('/users/fcm-token', data: {'fcmToken': null});
     } catch (e) {
-      debugPrint('⚠️ Could not clear FCM Token on server');
+      // Silently fail logout server-side update
     }
     await _storage.deleteAll();
     _user = null;
@@ -179,8 +179,6 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } on DioException catch (e) {
-      debugPrint('🔍 checkAuth Error: ${e.type} - ${e.response?.statusCode}');
-      
       // If it's a 401, the interceptor should have already tried to refresh.
       // If it's still 401, then we really are logged out.
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
@@ -189,22 +187,14 @@ class AuthProvider extends ChangeNotifier {
       }
       
       // For network errors (timeout, connection refused), we DON'T log out.
-      // We assume the user is still "logged in" but offline.
-      // We check if we have a stored user (optional: we could store user in local storage too)
       if (e.type == DioExceptionType.connectionTimeout || 
           e.type == DioExceptionType.receiveTimeout ||
           e.type == DioExceptionType.connectionError) {
-        
-        // If we can't reach the server, but we have a token, 
-        // we might want to let them in anyway if we had cached the user.
-        // For now, if we have a token, we return true to let them to MainScreen
-        // where they will see empty states or cached data.
         return true; 
       }
       
       return false;
     } catch (e) {
-      debugPrint('🔍 checkAuth Unexpected Error: $e');
       return false;
     }
   }

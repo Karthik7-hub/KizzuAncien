@@ -15,8 +15,6 @@ exports.sendDailyChallengeReminders = async (req, res, next) => {
       deadline: { $gt: today }
     }).populate('recipient');
 
-    console.log(`⏰ Processing daily reminders for ${activeChallenges.length} challenges...`);
-
     let sentCount = 0;
     for (const challenge of activeChallenges) {
       if (challenge.recipient && challenge.recipient.fcmToken) {
@@ -51,8 +49,6 @@ exports.sendStreakReminders = async (req, res, next) => {
         { lastCompletedDate: { $exists: false } }
       ]
     });
-
-    console.log(`🔥 Processing streak reminders for ${usersAtRisk.length} users...`);
 
     let sentCount = 0;
     for (const user of usersAtRisk) {

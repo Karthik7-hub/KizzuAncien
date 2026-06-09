@@ -10,7 +10,6 @@ import '../providers/notification_provider.dart';
 import 'home_screen.dart';
 import 'friends_screen.dart';
 import 'profile_screen.dart';
-import 'challenges_screen.dart';
 import '../theme/app_theme.dart';
 
 class MainScreen extends StatefulWidget {
@@ -26,7 +25,6 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _screens = const [
     HomeScreen(),
-    ChallengesScreen(),
     FriendsScreen(),
     ProfileScreen(),
   ];
@@ -155,7 +153,7 @@ class _MainScreenState extends State<MainScreen> {
         bottomNavigationBar: SafeArea(
           child: Container(
             height: 64,
-            margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            margin: const EdgeInsets.fromLTRB(40, 0, 40, 20),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(32),
               child: BackdropFilter(
@@ -171,9 +169,8 @@ class _MainScreenState extends State<MainScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       _buildNavItem(0, LucideIcons.home),
-                      _buildNavItem(1, LucideIcons.target),
-                      _buildNavItem(2, LucideIcons.users),
-                      _buildNavItem(3, LucideIcons.user),
+                      _buildNavItem(1, LucideIcons.users),
+                      _buildNavItem(2, LucideIcons.user),
                     ],
                   ),
                 ),

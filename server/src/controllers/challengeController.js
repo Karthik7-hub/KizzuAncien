@@ -113,6 +113,10 @@ exports.submitProof = async (req, res, next) => {
       return res.status(404).json({ message: 'Challenge not found' });
     }
 
+    if (challenge.status !== 'pending') {
+      return res.status(400).json({ message: 'Challenge is not in a pending state' });
+    }
+
     let proofUrl = req.body.proofUrl;
 
     if (req.file) {
@@ -203,6 +207,11 @@ async function handleReview(submission, status, req, res) {
     if (!lastCompleted || today > lastCompleted) {
       recipient.streak = (lastCompleted && today - lastCompleted === 86400000) ? recipient.streak + 1 : 1;
       recipient.lastCompletedDate = new Date();
+
+      // Update longest streak
+      if (recipient.streak > (recipient.longestStreak || 0)) {
+        recipient.longestStreak = recipient.streak;
+      }
     }
 
     await recipient.save();

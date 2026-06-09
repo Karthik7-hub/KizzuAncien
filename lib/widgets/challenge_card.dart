@@ -4,19 +4,31 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../screens/challenge_details_screen.dart';
+import 'avatar_widget.dart';
 
 class ChallengeCard extends StatelessWidget {
   final Challenge challenge;
-  final bool showParticipant;
   
   const ChallengeCard({
     super.key, 
     required this.challenge,
-    this.showParticipant = true,
   });
 
   @override
   Widget build(BuildContext context) {
+    final bool isCompleted = challenge.status == 'approved';
+    final bool isSubmitted = challenge.status == 'submitted';
+    final bool isDeclined = challenge.status == 'rejected';
+    
+    String actionText = 'Complete Challenge →';
+    if (isSubmitted) {
+      actionText = 'Awaiting Review →';
+    } else if (isCompleted) {
+      actionText = 'View Details →';
+    } else if (isDeclined) {
+      actionText = 'Declined →';
+    }
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -27,87 +39,92 @@ class ChallengeCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppTheme.zinc950,
-          borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          border: Border.all(color: AppTheme.zinc900),
+          color: AppTheme.zinc900.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.zinc800),
         ),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildStatusText(challenge.status),
-                Text(
-                  DateFormat('MMM d').format(challenge.createdAt),
-                  style: const TextStyle(color: AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        challenge.title,
+                        style: const TextStyle(
+                          fontSize: 18, 
+                          fontWeight: FontWeight.bold, 
+                          color: AppTheme.white,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Row(
+                        children: [
+                          Icon(
+                            isCompleted ? LucideIcons.checkCircle : LucideIcons.calendar, 
+                            size: 12, 
+                            color: isCompleted ? Colors.green : AppTheme.zinc500
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            isCompleted 
+                                ? 'Completed on ${DateFormat('MMM d').format(challenge.updatedAt)}'
+                                : 'Due ${DateFormat('MMM d, h:mm a').format(challenge.deadline)}',
+                            style: TextStyle(
+                              fontSize: 12, 
+                              color: isCompleted ? Colors.green.withValues(alpha: 0.7) : AppTheme.zinc500
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
+                AvatarWidget(user: challenge.recipient, size: 36),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(
-              challenge.title,
-              style: const TextStyle(
-                fontSize: 18, 
-                fontWeight: FontWeight.bold, 
-                color: AppTheme.white,
-                letterSpacing: -0.5,
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.only(top: 16),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: AppTheme.zinc800.withValues(alpha: 0.5))),
               ),
-            ),
-            if (showParticipant) ...[
-              const SizedBox(height: 16),
-              Row(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Icon(LucideIcons.user, size: 12, color: AppTheme.zinc500),
-                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AppTheme.black,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      challenge.proofType.toUpperCase(),
+                      style: const TextStyle(
+                        fontSize: 10, 
+                        fontWeight: FontWeight.bold, 
+                        color: AppTheme.zinc400,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ),
                   Text(
-                    'With ${challenge.creator.name}',
-                    style: const TextStyle(fontSize: 12, color: AppTheme.zinc500),
+                    actionText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDeclined ? AppTheme.zinc600 : AppTheme.white,
+                    ),
                   ),
                 ],
               ),
-            ],
+            ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatusText(String status) {
-    String label = 'In Progress';
-    Color color = Colors.blue;
-
-    if (status == 'approved') {
-      label = 'Completed';
-      color = Colors.green;
-    } else if (status == 'submitted') {
-      label = 'Pending Review';
-      color = Colors.orange;
-    } else if (status == 'rejected') {
-      label = 'Declined';
-      color = Colors.red;
-    }
-
-    return Row(
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12, 
-            fontWeight: FontWeight.w600, 
-            color: color.withValues(alpha: 0.8),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -7,12 +7,9 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    console.log('✅ Firebase Admin Initialized');
   } catch (error) {
-    console.error('❌ Firebase Admin Initialization Error:', error.message);
+    // Error initializing Firebase Admin
   }
-} else {
-  console.warn('⚠️ FIREBASE_SERVICE_ACCOUNT not found in environment variables');
 }
 
 /**
@@ -29,18 +26,14 @@ exports.sendPushNotification = async (target, title, body, data = {}) => {
   if (target && target.length === 24) {
     const user = await User.findById(target);
     if (!user || !user.fcmToken) {
-      console.log(`ℹ️ No FCM token found for user: ${target}. Skipping push.`);
       return;
     }
     token = user.fcmToken;
   }
 
   if (!token) {
-    console.warn('⚠️ Aborting FCM send: No token provided');
     return;
   }
-
-  console.log(`📡 Attempting to send Push Notification: "${title}" to token: ${token.substring(0, 10)}...`);
 
   const message = {
     notification: { title, body },
@@ -61,14 +54,10 @@ exports.sendPushNotification = async (target, title, body, data = {}) => {
 
   try {
     const response = await admin.messaging().send(message);
-    console.log('✅ FCM Sent Successfully. MessageID:', response);
     return response;
   } catch (error) {
-    console.error('❌ FCM Send Error:', error.message);
-
     if (error.code === 'messaging/registration-token-not-registered' ||
         error.code === 'messaging/invalid-registration-token') {
-      console.warn('🚫 Token is invalid/expired. Removing from database...');
       await User.updateOne({ fcmToken: token }, { $set: { fcmToken: null } });
       return { error: 'token_expired' };
     }

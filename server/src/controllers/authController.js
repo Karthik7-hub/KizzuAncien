@@ -1,9 +1,10 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
+const admin = require('firebase-admin');
 
 const generateTokens = (id) => {
-  // Access token valid for 1 day, Refresh token valid for 30 days
-  const accessToken = jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, { expiresIn: '1d' });
+  // Access token valid for 1 hour, Refresh token valid for 30 days
+  const accessToken = jwt.sign({ id }, process.env.JWT_ACCESS_SECRET, { expiresIn: '1h' });
   const refreshToken = jwt.sign({ id }, process.env.JWT_REFRESH_SECRET, { expiresIn: '30d' });
   return { accessToken, refreshToken };
 };
@@ -51,11 +52,23 @@ exports.login = async (req, res, next) => {
 exports.googleLogin = async (req, res, next) => {
   try {
     const { googleId, email, name, gender, username, idToken } = req.body;
-    let user = await User.findOne({ email });
 
-    // TODO: In production, verify idToken using google-auth-library
-    // const client = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
-    // const ticket = await client.verifyIdToken({ idToken, audience: process.env.GOOGLE_WEB_CLIENT_ID });
+    if (!idToken) {
+      return res.status(400).json({ message: 'Google ID Token is required' });
+    }
+
+    // Verify Firebase ID Token (Sent from frontend after Google Sign-In)
+    let decodedToken;
+    try {
+      decodedToken = await admin.auth().verifyIdToken(idToken);
+      if (decodedToken.email !== email) {
+        return res.status(401).json({ message: 'Email mismatch in token' });
+      }
+    } catch (err) {
+      return res.status(401).json({ message: 'Invalid Google ID Token' });
+    }
+
+    let user = await User.findOne({ email });
 
     if (!user) {
       // If user doesn't exist, we expect gender and username to be provided from the frontend
@@ -105,8 +118,13 @@ exports.refreshToken = async (req, res, next) => {
     const { token } = req.body;
     if (!token) return res.status(401).json({ message: 'Refresh Token is required' });
 
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
+    jwt.verify(token, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
       if (err) return res.status(403).json({ message: 'Refresh token is invalid' });
+
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return res.status(403).json({ message: 'User no longer exists' });
+      }
 
       const tokens = generateTokens(decoded.id);
       res.json(tokens);

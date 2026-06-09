@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide User, AuthProvider;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
@@ -79,12 +80,26 @@ class _AuthScreenState extends State<AuthScreen> {
       }
 
       final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      
+      // Create a credential for Firebase
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      // Sign in to Firebase
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final String? firebaseIdToken = await userCredential.user?.getIdToken();
+
+      if (firebaseIdToken == null) {
+        throw Exception('Could not get Firebase ID Token');
+      }
 
       final Map<String, dynamic> googleData = {
-        'googleId': googleUser.id,
-        'email': googleUser.email,
-        'name': googleUser.displayName,
-        'idToken': googleAuth.idToken,
+        'googleId': userCredential.user!.uid,
+        'email': userCredential.user!.email,
+        'name': userCredential.user!.displayName,
+        'idToken': firebaseIdToken,
       };
 
       final result = await authProvider.googleLogin(googleData);
