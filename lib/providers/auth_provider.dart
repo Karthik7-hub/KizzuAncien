@@ -52,8 +52,10 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       
       String message = 'Connection refused. Is the server running?';
-      if (e.response != null) {
+      if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? 'Registration failed';
+      } else if (e.response != null) {
+        message = 'Server Error: ${e.response?.statusCode}';
       } else if (e.type == DioExceptionType.connectionTimeout) {
         message = 'Server timed out. Check your database connection.';
       }
@@ -88,8 +90,10 @@ class AuthProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
       String message = 'Login failed';
-      if (e.response != null) {
+      if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? message;
+      } else if (e.response != null) {
+        message = 'Server Error: ${e.response?.statusCode}';
       }
       throw Exception(message);
     } catch (e) {
@@ -127,7 +131,13 @@ class AuthProvider extends ChangeNotifier {
     } on DioException catch (e) {
       _isLoading = false;
       notifyListeners();
-      throw Exception(e.response?.data['message'] ?? 'Google login failed');
+      String message = 'Google login failed';
+      if (e.response?.data is Map) {
+        message = e.response?.data['message'] ?? message;
+      } else if (e.response != null) {
+        message = 'Server Error: ${e.response?.statusCode}';
+      }
+      throw Exception(message);
     } catch (e) {
       _isLoading = false;
       notifyListeners();
@@ -195,7 +205,13 @@ class AuthProvider extends ChangeNotifier {
     } on DioException catch (e) {
       _isLoading = false;
       notifyListeners();
-      throw Exception(e.response?.data['message'] ?? 'Profile update failed');
+      String message = 'Profile update failed';
+      if (e.response?.data is Map) {
+        message = e.response?.data['message'] ?? message;
+      } else if (e.response != null) {
+        message = 'Server Error: ${e.response?.statusCode}';
+      }
+      throw Exception(message);
     } catch (e) {
       _isLoading = false;
       notifyListeners();

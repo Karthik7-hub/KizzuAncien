@@ -1,6 +1,6 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
-const admin = require('firebase-admin');
+const admin = require('../config/firebase');
 
 const generateTokens = (id) => {
   // Access token valid for 1 hour, Refresh token valid for 30 days
@@ -57,15 +57,19 @@ exports.googleLogin = async (req, res, next) => {
       return res.status(400).json({ message: 'Google ID Token is required' });
     }
 
-    // Verify Firebase ID Token (Sent from frontend after Google Sign-In)
+    // Verify Firebase ID Token
     let decodedToken;
     try {
+      if (admin.apps.length === 0) {
+        throw new Error('Firebase Admin not initialized. Check server logs.');
+      }
       decodedToken = await admin.auth().verifyIdToken(idToken);
       if (decodedToken.email !== email) {
         return res.status(401).json({ message: 'Email mismatch in token' });
       }
     } catch (err) {
-      return res.status(401).json({ message: 'Invalid Google ID Token' });
+      console.error('Google Login Token Error:', err.message);
+      return res.status(401).json({ message: `Authentication failed: ${err.message}` });
     }
 
     let user = await User.findOne({ email });

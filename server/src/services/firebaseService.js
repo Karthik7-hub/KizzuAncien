@@ -1,16 +1,5 @@
-const admin = require('firebase-admin');
+const admin = require('../config/firebase');
 const User = require('../models/User');
-
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-  try {
-    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-  } catch (error) {
-    // Error initializing Firebase Admin
-  }
-}
 
 /**
  * Sends a push notification to a specific user or token.
@@ -20,6 +9,11 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
  * @param {object} data - Extra data payload
  */
 exports.sendPushNotification = async (target, title, body, data = {}) => {
+  if (admin.apps.length === 0) {
+    console.warn('Cannot send notification: Firebase Admin not initialized');
+    return { error: 'firebase_not_initialized' };
+  }
+
   let token = target;
 
   // If target is a User ID (24 char hex), fetch the user's token
