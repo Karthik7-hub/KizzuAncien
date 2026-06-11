@@ -226,7 +226,7 @@ class AuthProvider extends ChangeNotifier {
     try {
       // Use a longer timeout for startup check to support low internet
       final response = await _apiService.dio.get('/users/profile').timeout(
-        const Duration(seconds: 12),
+        const Duration(seconds: 15),
       );
       
       _user = User.fromJson(response.data['user']);
@@ -235,29 +235,23 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
       return AuthStatus.authenticated;
     } on DioException catch (e) {
+      // If interceptor couldn't refresh and returned 401/403
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
-        await logout();
-        return AuthStatus.unauthenticated;
+        // Double check if we still have tokens (interceptor might have cleared them)
+        final stillHasTokens = await _storage.read(key: 'refreshToken') != null;
+        if (!stillHasTokens) {
+          _user = null;
+          _status = AuthStatus.unauthenticated;
+          notifyListeners();
+          return AuthStatus.unauthenticated;
+        }
       }
       
-      // If it's a network error or timeout, we don't log out, but we might be offline
-      if (e.type == DioExceptionType.connectionTimeout || 
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError ||
-          e.type == DioExceptionType.unknown) {
-        
-        // If we have a token but can't reach the server, we might still want to allow
-        // entry if we have cached data, but for now let's treat as offline
-        _status = AuthStatus.offline;
-        notifyListeners();
-        return AuthStatus.offline; 
-      }
-      
-      _status = AuthStatus.unauthenticated;
+      // If we have a token but can't reach the server, treat as offline
+      _status = AuthStatus.offline;
       notifyListeners();
-      return AuthStatus.unauthenticated;
+      return AuthStatus.offline; 
     } catch (e) {
-      // Any other error (like timeout from .timeout())
       _status = AuthStatus.offline;
       notifyListeners();
       return AuthStatus.offline;

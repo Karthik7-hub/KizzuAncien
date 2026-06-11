@@ -123,13 +123,13 @@ exports.refreshToken = async (req, res, next) => {
 
       const user = await User.findById(decoded.id);
       if (!user) {
-        return res.status(403).json({ message: 'User no longer exists' });
+        return res.status(401).json({ message: 'User no longer exists' });
       }
 
-      const tokens = generateTokens(user._id);
-      res.json(tokens);
+      const { accessToken, refreshToken } = generateTokens(user._id);
+      res.json({ accessToken, refreshToken });
     } catch (err) {
-      return res.status(403).json({ message: 'Refresh token is invalid or expired' });
+      return res.status(401).json({ message: 'Refresh token is invalid or expired' });
     }
   } catch (error) {
     next(error);

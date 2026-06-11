@@ -32,7 +32,7 @@ class ApiService {
         return handler.next(options);
       },
       onError: (DioException e, handler) async {
-        if (e.response?.statusCode == 401) {
+        if (e.response?.statusCode == 401 && !e.requestOptions.path.contains('/auth/')) {
           if (_isRefreshing) {
             // Queue the request until refresh is complete
             _refreshQueue.add((String? newToken) async {
@@ -65,8 +65,10 @@ class ApiService {
           
           if (refreshToken != null) {
             try {
-              final refreshResponse = await Dio().post(
-                '${AppConstants.apiBaseUrl}/auth/refresh-token',
+              // Use a separate Dio instance for token refresh to avoid interceptor loop
+              final refreshDio = Dio(BaseOptions(baseUrl: AppConstants.apiBaseUrl));
+              final refreshResponse = await refreshDio.post(
+                '/auth/refresh-token',
                 data: {'token': refreshToken}
               );
               
@@ -79,10 +81,11 @@ class ApiService {
               _isRefreshing = false;
               
               // Process queue
-              for (var callback in _refreshQueue) {
+              final List<void Function(String?)> queue = List.from(_refreshQueue);
+              _refreshQueue.clear();
+              for (var callback in queue) {
                 callback(newAccessToken);
               }
-              _refreshQueue.clear();
 
               // Retry original request
               e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
@@ -100,23 +103,32 @@ class ApiService {
             } catch (err) {
               _isRefreshing = false;
               
-              // Only clear tokens if the refresh token is explicitly rejected by the server
+              // Clear tokens if the refresh token is rejected or user not found
               if (err is DioException && 
                   (err.response?.statusCode == 401 || err.response?.statusCode == 403)) {
-                await storage.deleteAll();
-                for (var callback in _refreshQueue) {
+                await storage.delete(key: 'accessToken');
+                await storage.delete(key: 'refreshToken');
+                
+                final List<void Function(String?)> queue = List.from(_refreshQueue);
+                _refreshQueue.clear();
+                for (var callback in queue) {
                   callback(null);
                 }
               } else {
-                // Network error or server down, don't logout, just fail the queued requests
-                for (var callback in _refreshQueue) {
+                // For network errors, don't logout, but fail the queued requests
+                final List<void Function(String?)> queue = List.from(_refreshQueue);
+                _refreshQueue.clear();
+                for (var callback in queue) {
                   callback(null);
                 }
               }
 
-              _refreshQueue.clear();
               return handler.next(e);
             }
+          } else {
+            // No refresh token available
+            _isRefreshing = false;
+            return handler.next(e);
           }
         }
         return handler.next(e);
