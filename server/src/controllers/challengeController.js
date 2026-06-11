@@ -54,11 +54,11 @@ exports.getChallenges = async (req, res, next) => {
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
     .sort('-createdAt');
 
-    // Fetch submissions for these challenges
+    // Fetch submissions for these challenges and populate version authors
     const challengeIds = challenges.map(c => c._id);
     const submissions = await ChallengeSubmission.find({
       challenge: { $in: challengeIds }
-    });
+    }).populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
 
     // Merge submissions into challenges
     const results = await Promise.all(challenges.map(async challenge => {
@@ -89,11 +89,11 @@ exports.getSharedChallenges = async (req, res, next) => {
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
     .sort('-createdAt');
 
-    // Fetch submissions for these challenges
+    // Fetch submissions for these challenges and populate version authors
     const challengeIds = challenges.map(c => c._id);
     const submissions = await ChallengeSubmission.find({
       challenge: { $in: challengeIds }
-    });
+    }).populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
 
     // Merge submissions into challenges
     const results = await Promise.all(challenges.map(async challenge => {
@@ -114,7 +114,8 @@ exports.getSubmissionByChallenge = async (req, res, next) => {
   try {
     const submission = await ChallengeSubmission.findOne({ challenge: req.params.challengeId })
       .populate('challenge')
-      .populate('submitter', 'name username profileImageUrl gender avatarType');
+      .populate('submitter', 'name username profileImageUrl gender avatarType')
+      .populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
@@ -176,6 +177,8 @@ exports.submitProof = async (req, res, next) => {
       status: 'pending'
     });
 
+    await submission.populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
+
     challenge.status = 'submitted';
     await challenge.save();
 
@@ -236,6 +239,8 @@ exports.editSubmission = async (req, res, next) => {
     submission.currentVersion = nextVersionNumber;
     submission.status = 'pending';
     await submission.save();
+
+    await submission.populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
 
     const challenge = submission.challenge;
     challenge.status = 'submitted';

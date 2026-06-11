@@ -65,13 +65,24 @@ class SubmissionVersion {
   });
 
   factory SubmissionVersion.fromJson(Map<String, dynamic> json) {
+    // Safety check: createdBy might be a String ID or a populated Map
+    User? author;
+    if (json['createdBy'] != null) {
+      if (json['createdBy'] is Map<String, dynamic>) {
+        author = User.fromJson(json['createdBy']);
+      } else {
+        // It's a String ID, we can't create a full User object but we avoid crashing
+        // The UI will just show 'Unknown' or fallback to challenge recipient
+      }
+    }
+
     return SubmissionVersion(
       versionNumber: json['versionNumber'] ?? 1,
       notes: (json['notes'] as List? ?? []).map((n) => Note.fromJson(n)).toList(),
       status: json['status'] ?? 'pending',
       reviewerNote: json['reviewerNote'],
       reviewedAt: json['reviewedAt'] != null ? DateTime.parse(json['reviewedAt']) : null,
-      createdBy: json['createdBy'] != null ? User.fromJson(json['createdBy']) : null,
+      createdBy: author,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
     );
   }
@@ -97,10 +108,16 @@ class ChallengeSubmission {
   factory ChallengeSubmission.fromJson(Map<String, dynamic> json) {
     return ChallengeSubmission(
       id: json['_id'] ?? '',
-      challengeId: json['challenge'] ?? '',
-      submitterId: json['submitter'] ?? '',
+      challengeId: json['challenge'] is String ? json['challenge'] : (json['challenge']?['_id'] ?? ''),
+      submitterId: json['submitter'] is String ? json['submitter'] : (json['submitter']?['_id'] ?? ''),
       currentVersion: json['currentVersion'] ?? 1,
-      versions: (json['versions'] as List? ?? []).map((v) => SubmissionVersion.fromJson(v)).toList(),
+      versions: (json['versions'] as List? ?? []).map((v) {
+        if (v is Map<String, dynamic>) {
+          return SubmissionVersion.fromJson(v);
+        }
+        // Fallback for unexpected data format
+        return SubmissionVersion(versionNumber: 0, notes: [], status: 'error', createdAt: DateTime.now());
+      }).toList(),
       status: json['status'] ?? 'pending',
     );
   }
@@ -126,10 +143,18 @@ class ChallengeActivity {
   });
 
   factory ChallengeActivity.fromJson(Map<String, dynamic> json) {
+    User? activityUser;
+    if (json['user'] != null && json['user'] is Map<String, dynamic>) {
+      activityUser = User.fromJson(json['user']);
+    } else {
+      // Fallback user if populate fails
+      activityUser = User(id: '', name: 'System', email: '', username: 'system', gender: 'other', currentStreak: 0, longestStreak: 0);
+    }
+
     return ChallengeActivity(
       id: json['_id'] ?? '',
       challengeId: json['challenge'] ?? '',
-      user: User.fromJson(json['user']),
+      user: activityUser,
       type: json['type'] ?? '',
       versionNumber: json['versionNumber'],
       message: json['message'],
@@ -168,10 +193,24 @@ class Challenge {
   });
 
   factory Challenge.fromJson(Map<String, dynamic> json) {
+    User? creatorUser;
+    if (json['creator'] is Map<String, dynamic>) {
+      creatorUser = User.fromJson(json['creator']);
+    } else {
+      creatorUser = User(id: json['creator'] ?? '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0);
+    }
+
+    User? recipientUser;
+    if (json['recipient'] is Map<String, dynamic>) {
+      recipientUser = User.fromJson(json['recipient']);
+    } else {
+      recipientUser = User(id: json['recipient'] ?? '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0);
+    }
+
     return Challenge(
       id: json['_id'] ?? '',
-      creator: User.fromJson(json['creator']),
-      recipient: User.fromJson(json['recipient']),
+      creator: creatorUser,
+      recipient: recipientUser,
       title: json['title'] ?? '',
       description: json['description'],
       deadline: DateTime.parse(json['deadline']),

@@ -42,24 +42,28 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
     } else if (type == 'link') {
       _showEditNoteDialog(Note(id: '', type: 'link', content: '', version: 1, createdAt: DateTime.now(), updatedAt: DateTime.now()));
     } else if (type == 'image') {
+      if (_isSubmitting) return;
       final ImagePicker picker = ImagePicker();
       final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
       if (image != null) {
         if (mounted) {
            setState(() => _isSubmitting = true);
-           final url = await context.read<ChallengeProvider>().uploadAttachment(File(image.path));
-           setState(() => _isSubmitting = false);
-           if (url != null) {
-             setState(() {
-               _notes.add(Note(
-                 id: DateTime.now().millisecondsSinceEpoch.toString(),
-                 type: 'image',
-                 content: url,
-                 version: 1,
-                 createdAt: DateTime.now(),
-                 updatedAt: DateTime.now(),
-               ));
-             });
+           try {
+             final url = await context.read<ChallengeProvider>().uploadAttachment(File(image.path));
+             if (url != null) {
+               setState(() {
+                 _notes.add(Note(
+                   id: DateTime.now().millisecondsSinceEpoch.toString(),
+                   type: 'image',
+                   content: url,
+                   version: 1,
+                   createdAt: DateTime.now(),
+                   updatedAt: DateTime.now(),
+                 ));
+               });
+             }
+           } finally {
+             if (mounted) setState(() => _isSubmitting = false);
            }
         }
       }
@@ -75,110 +79,129 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
       context: context,
       isScrollControlled: true,
       backgroundColor: AppTheme.zinc950,
+      useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 32,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                '${index == null ? "Add" : "Edit"} ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())} Note',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white),
-              ),
-              const SizedBox(height: 24),
-              TextField(
-                controller: titleController,
-                style: const TextStyle(color: AppTheme.white),
-                decoration: InputDecoration(
-                  labelText: 'Title (Optional)',
-                  labelStyle: const TextStyle(color: AppTheme.zinc500),
-                  filled: true,
-                  fillColor: AppTheme.zinc900,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (note.type == 'code') ...[
-                const Text('LANGUAGE', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
-                  child: DropdownButton<String>(
-                    value: selectedLanguage,
-                    isExpanded: true,
-                    underline: const SizedBox(),
-                    dropdownColor: AppTheme.zinc900,
-                    items: ['dart', 'javascript', 'python', 'cpp', 'html', 'css', 'java'].map((lang) {
-                      return DropdownMenuItem(value: lang, child: Text(lang.toUpperCase(), style: const TextStyle(color: AppTheme.white, fontSize: 13)));
-                    }).toList(),
-                    onChanged: (val) => setModalState(() => selectedLanguage = val!),
+        builder: (context, setModalState) => GestureDetector(
+          onTap: () => FocusScope.of(context).unfocus(),
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 24,
+              right: 24,
+              top: 32,
+            ),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '${index == null ? "Add" : "Edit"} ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())}',
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white),
+                      ),
+                      IconButton(
+                        icon: const Icon(LucideIcons.x, color: AppTheme.zinc700, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextField(
-                controller: contentController,
-                maxLines: note.type == 'explanation' || note.type == 'code' ? 10 : 1,
-                style: const TextStyle(color: AppTheme.white, fontFamily: 'monospace'),
-                decoration: InputDecoration(
-                  labelText: note.type == 'link' ? 'URL' : 'Content',
-                  labelStyle: const TextStyle(color: AppTheme.zinc500),
-                  filled: true,
-                  fillColor: AppTheme.zinc900,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                  alignLabelWithHint: true,
-                ),
-              ),
-              const SizedBox(height: 32),
-              CustomButton(
-                text: 'Save Note',
-                onPressed: () {
-                  String content = contentController.text.trim();
-                  if (content.isEmpty) return;
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: titleController,
+                    style: const TextStyle(color: AppTheme.white),
+                    decoration: InputDecoration(
+                      hintText: 'Title (Optional)',
+                      hintStyle: const TextStyle(color: AppTheme.zinc700),
+                      filled: true,
+                      fillColor: AppTheme.zinc900,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  if (note.type == 'code') ...[
+                    const Text('LANGUAGE', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
+                      child: DropdownButton<String>(
+                        value: selectedLanguage,
+                        isExpanded: true,
+                        underline: const SizedBox(),
+                        dropdownColor: AppTheme.zinc900,
+                        items: ['dart', 'javascript', 'python', 'cpp', 'html', 'css', 'java'].map((lang) {
+                          return DropdownMenuItem(value: lang, child: Text(lang.toUpperCase(), style: const TextStyle(color: AppTheme.white, fontSize: 13)));
+                        }).toList(),
+                        onChanged: (val) => setModalState(() => selectedLanguage = val!),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+                  TextField(
+                    controller: contentController,
+                    maxLines: note.type == 'explanation' || note.type == 'code' ? 8 : 1,
+                    style: const TextStyle(color: AppTheme.white, fontFamily: 'monospace', fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: note.type == 'link' ? 'https://...' : 'Write something...',
+                      hintStyle: const TextStyle(color: AppTheme.zinc700),
+                      filled: true,
+                      fillColor: AppTheme.zinc900,
+                      contentPadding: const EdgeInsets.all(20),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                      alignLabelWithHint: true,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  CustomButton(
+                    text: 'Save Note',
+                    onPressed: () {
+                      String content = contentController.text.trim();
+                      if (content.isEmpty) return;
 
-                  if (note.type == 'link') {
-                    // Simple URL validation
-                    final uri = Uri.tryParse(content);
-                    if (uri == null || !uri.hasAbsolutePath) {
-                       ScaffoldMessenger.of(context).showSnackBar(
-                         const SnackBar(content: Text('Please enter a valid URL (including http/https)'), backgroundColor: Colors.redAccent)
-                       );
-                       return;
-                    }
-                  }
+                      if (note.type == 'link') {
+                        // More flexible URL validation
+                        if (!content.contains('.')) {
+                           ScaffoldMessenger.of(context).showSnackBar(
+                             const SnackBar(content: Text('Please enter a valid link'), backgroundColor: Colors.redAccent)
+                           );
+                           return;
+                        }
+                        if (!content.startsWith('http')) {
+                          content = 'https://$content';
+                        }
+                      }
 
-                  final updatedNote = Note(
-                    id: note.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : note.id,
-                    type: note.type,
-                    title: titleController.text.trim(),
-                    content: content,
-                    metadata: note.type == 'code' ? {'language': selectedLanguage} : null,
-                    version: note.version,
-                    createdAt: note.createdAt,
-                    updatedAt: DateTime.now(),
-                  );
-                  setState(() {
-                    if (index == null) {
-                      _notes.add(updatedNote);
-                    } else {
-                      _notes[index] = updatedNote;
-                    }
-                  });
-                  Navigator.pop(context);
-                },
-                backgroundColor: AppTheme.white,
-                textColor: AppTheme.black,
+                      final updatedNote = Note(
+                        id: note.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : note.id,
+                        type: note.type,
+                        title: titleController.text.trim(),
+                        content: content,
+                        metadata: note.type == 'code' ? {'language': selectedLanguage} : null,
+                        version: note.version,
+                        createdAt: note.createdAt,
+                        updatedAt: DateTime.now(),
+                      );
+                      setState(() {
+                        if (index == null) {
+                          _notes.add(updatedNote);
+                        } else {
+                          _notes[index] = updatedNote;
+                        }
+                      });
+                      Navigator.pop(context);
+                    },
+                    backgroundColor: AppTheme.white,
+                    textColor: AppTheme.black,
+                  ),
+                  const SizedBox(height: 40),
+                ],
               ),
-              const SizedBox(height: 40),
-            ],
+            ),
           ),
         ),
       ),
@@ -336,7 +359,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
           CustomButton(
             text: widget.existingSubmission == null ? 'Submit Solution' : 'Update & Re-verify',
             isLoading: _isSubmitting,
-            onPressed: _notes.isEmpty ? null : _handleSubmit,
+            onPressed: _notes.isEmpty || _isSubmitting ? null : _handleSubmit,
             backgroundColor: AppTheme.white,
             textColor: AppTheme.black,
           ),
@@ -347,21 +370,24 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
 
   Widget _buildAddAction(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.zinc900,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppTheme.zinc800),
+      onTap: _isSubmitting ? null : onTap,
+      child: Opacity(
+        opacity: _isSubmitting ? 0.5 : 1.0,
+        child: Column(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.zinc900,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppTheme.zinc800),
+              ),
+              child: Icon(icon, color: AppTheme.white, size: 20),
             ),
-            child: Icon(icon, color: AppTheme.white, size: 20),
-          ),
-          const SizedBox(height: 8),
-          Text(label, style: const TextStyle(color: AppTheme.zinc600, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
-        ],
+            const SizedBox(height: 8),
+            Text(label, style: const TextStyle(color: AppTheme.zinc600, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          ],
+        ),
       ),
     );
   }

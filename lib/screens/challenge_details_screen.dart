@@ -7,6 +7,7 @@ import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../widgets/note_widgets.dart';
 import '../widgets/custom_button.dart';
+import '../widgets/avatar_widget.dart';
 import '../providers/auth_provider.dart';
 import '../providers/challenge_provider.dart';
 import 'submit_proof_screen.dart';
@@ -86,33 +87,40 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.black,
-      appBar: AppBar(
-        backgroundColor: AppTheme.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('CHALLENGE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2)),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+      body: CustomScrollView(
+        slivers: [
+          _buildSliverAppBar(currentChallenge),
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildChallengeHeader(currentChallenge),
-                  const SizedBox(height: 48),
+                  _buildStatusOverview(currentChallenge),
+                  const SizedBox(height: 32),
+                  
+                  // Challenge Description
+                  if (currentChallenge.description != null && currentChallenge.description!.isNotEmpty) ...[
+                    const Text(
+                      'THE CHALLENGE',
+                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      currentChallenge.description!,
+                      style: const TextStyle(color: AppTheme.zinc400, fontSize: 15, height: 1.6),
+                    ),
+                    const SizedBox(height: 48),
+                  ],
                   
                   if (currentChallenge.submission != null) ...[
-                    _buildSubmissionOverview(currentChallenge.submission!),
+                    _buildSubmissionHeader(currentChallenge.submission!),
+                    const SizedBox(height: 24),
+                    _buildSubmissionCard(currentChallenge.submission!),
                     const SizedBox(height: 48),
                     _buildNotesSection(currentChallenge.submission!),
                     const SizedBox(height: 48),
-                    _buildActivitySection(),
+                    _buildActivityTimeline(),
                   ] else ...[
                     _buildEmptySubmissionState(isRecipient, currentChallenge),
                   ],
@@ -122,97 +130,190 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
               ),
             ),
           ),
-          if (currentChallenge.submission != null)
-             _buildActionArea(context, currentChallenge, isRecipient, isCreator),
+        ],
+      ),
+      bottomSheet: currentChallenge.submission != null 
+          ? _buildActionArea(context, currentChallenge, isRecipient, isCreator)
+          : null,
+    );
+  }
+
+  Widget _buildSliverAppBar(Challenge challenge) {
+    return SliverAppBar(
+      expandedHeight: 240,
+      backgroundColor: AppTheme.black,
+      leading: IconButton(
+        icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
+        onPressed: () => Navigator.pop(context),
+      ),
+      pinned: true,
+      flexibleSpace: FlexibleSpaceBar(
+        background: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (challenge.coverImage != null)
+              Image.network(challenge.coverImage!, fit: BoxFit.cover)
+            else
+              Container(color: AppTheme.zinc900),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    AppTheme.black.withValues(alpha: 0.8),
+                    AppTheme.black,
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: 24,
+              left: 24,
+              right: 24,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    challenge.title.toUpperCase(),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.white,
+                      letterSpacing: -0.5,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      AvatarWidget(user: challenge.creator, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Created by ${challenge.creator.name}',
+                        style: const TextStyle(color: AppTheme.zinc500, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusOverview(Challenge challenge) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.zinc950,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppTheme.zinc900),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildStatItem('STATUS', challenge.status.toUpperCase(), AppTheme.white),
+          Container(width: 1, height: 32, color: AppTheme.zinc900),
+          _buildStatItem(
+            'DUE', 
+            DateFormat('MMM d').format(challenge.deadline).toUpperCase(),
+            AppTheme.zinc400
+          ),
+          Container(width: 1, height: 32, color: AppTheme.zinc900),
+          _buildStatItem('TYPE', challenge.proofType.toUpperCase(), AppTheme.zinc400),
         ],
       ),
     );
   }
 
-  Widget _buildChallengeHeader(Challenge challenge) {
+  Widget _buildStatItem(String label, String value, Color valueColor) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-              decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(6)),
-              child: Text(
-                challenge.status.toUpperCase(),
-                style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc400, letterSpacing: 1),
-              ),
-            ),
-            Text(
-              'DUE ${DateFormat('MMM d').format(challenge.deadline).toUpperCase()}',
-              style: const TextStyle(color: AppTheme.zinc700, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
         Text(
-          challenge.title,
-          style: Theme.of(context).textTheme.displayMedium?.copyWith(fontSize: 28, letterSpacing: -0.5),
+          label,
+          style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.zinc700, letterSpacing: 1),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            const Text('Created by ', style: TextStyle(color: AppTheme.zinc600, fontSize: 13)),
-            Text(challenge.creator.name, style: const TextStyle(color: AppTheme.zinc400, fontSize: 13, fontWeight: FontWeight.bold)),
-          ],
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: valueColor),
         ),
       ],
     );
   }
 
-  Widget _buildSubmissionOverview(ChallengeSubmission submission) {
+  Widget _buildSubmissionHeader(ChallengeSubmission submission) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Row(
+          children: [
+            Container(width: 3, height: 16, decoration: BoxDecoration(color: AppTheme.white, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(width: 12),
+            const Text(
+              'SUBMISSION',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.white, letterSpacing: 1.5),
+            ),
+          ],
+        ),
+        if (submission.versions.length > 1) _buildVersionDropdown(submission),
+      ],
+    );
+  }
+
+  Widget _buildSubmissionCard(ChallengeSubmission submission) {
+    if (submission.versions.isEmpty) {
+       return const Center(child: Text('No versions found', style: TextStyle(color: AppTheme.zinc600)));
+    }
+
     final selectedVersion = submission.versions.firstWhere(
       (v) => v.versionNumber == _selectedVersionNumber,
       orElse: () => submission.versions.last,
     );
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: AppTheme.zinc950,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.zinc900.withValues(alpha: 0.5), AppTheme.zinc950],
+        ),
         borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.zinc900),
+        border: Border.all(color: AppTheme.zinc800.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('SUBMISSION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5)),
-              if (submission.versions.length > 1) _buildVersionDropdown(submission),
-            ],
-          ),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              _buildOverviewStat('STATUS', selectedVersion.status.toUpperCase(), selectedVersion.status == 'approved' ? AppTheme.white : AppTheme.zinc500),
-              const SizedBox(width: 40),
               _buildOverviewStat('VERSION', 'v${selectedVersion.versionNumber}', AppTheme.white),
-              const SizedBox(width: 40),
+              const Spacer(),
+              _buildOverviewStat(
+                'STATUS', 
+                selectedVersion.status.toUpperCase(), 
+                selectedVersion.status == 'approved' ? Colors.green : AppTheme.white
+              ),
+              const Spacer(),
               _buildOverviewStat('NOTES', '${selectedVersion.notes.length}', AppTheme.white),
             ],
           ),
           if (selectedVersion.reviewerNote != null && selectedVersion.reviewerNote!.isNotEmpty) ...[
             const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.all(16),
-              width: double.infinity,
-              decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('REVIEWER NOTE', style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
-                  const SizedBox(height: 8),
-                  Text(selectedVersion.reviewerNote!, style: const TextStyle(color: AppTheme.zinc400, fontSize: 13, height: 1.5)),
-                ],
-              ),
+            const Divider(color: AppTheme.zinc900),
+            const SizedBox(height: 16),
+            const Text(
+              'REVIEWER REMARKS',
+              style: TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              selectedVersion.reviewerNote!,
+              style: const TextStyle(color: AppTheme.zinc400, fontSize: 13, height: 1.5, fontStyle: FontStyle.italic),
             ),
           ],
         ],
@@ -224,7 +325,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1)),
+        Text(label, style: const TextStyle(fontSize: 8, fontWeight: FontWeight.bold, color: AppTheme.zinc700, letterSpacing: 1)),
         const SizedBox(height: 4),
         Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: valueColor)),
       ],
@@ -234,18 +335,22 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   Widget _buildVersionDropdown(ChallengeSubmission submission) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: AppTheme.zinc900,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppTheme.zinc800),
+      ),
       child: DropdownButton<int>(
         value: _selectedVersionNumber,
         items: submission.versions.map((v) => DropdownMenuItem(
           value: v.versionNumber,
-          child: Text('v${v.versionNumber}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.white)),
+          child: Text('v${v.versionNumber}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.white)),
         )).toList(),
         onChanged: (val) {
            if (val != null) setState(() => _selectedVersionNumber = val);
         },
         underline: const SizedBox(),
-        icon: const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.zinc500),
+        icon: const Icon(LucideIcons.chevronDown, size: 12, color: AppTheme.zinc500),
         dropdownColor: AppTheme.zinc900,
         isDense: true,
       ),
@@ -253,6 +358,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   }
 
   Widget _buildNotesSection(ChallengeSubmission submission) {
+    if (submission.versions.isEmpty) return const SizedBox.shrink();
+
     final selectedVersion = submission.versions.firstWhere(
       (v) => v.versionNumber == _selectedVersionNumber,
       orElse: () => submission.versions.last,
@@ -267,16 +374,13 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(width: 2, height: 10, decoration: const BoxDecoration(color: AppTheme.white)),
-            const SizedBox(width: 8),
-            const Text('SOLUTION NOTES', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5)),
-          ],
+        const Text(
+          'SOLUTION NOTES',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
         ),
         const SizedBox(height: 24),
         if (sortedNotes.isEmpty)
-          const Text('No notes provided for this version.', style: TextStyle(color: AppTheme.zinc700, fontSize: 13))
+          const Text('No detailed notes provided for this version.', style: TextStyle(color: AppTheme.zinc800, fontSize: 13))
         else
           ...sortedNotes.map((note) => Padding(
             padding: const EdgeInsets.only(bottom: 24),
@@ -296,22 +400,19 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     }
   }
 
-  Widget _buildActivitySection() {
+  Widget _buildActivityTimeline() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Container(width: 2, height: 10, decoration: const BoxDecoration(color: AppTheme.white)),
-            const SizedBox(width: 8),
-            const Text('ACTIVITY TIMELINE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5)),
-          ],
+        const Text(
+          'ACTIVITY LOG',
+          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
         if (_isLoadingActivities)
           const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.zinc800)))
         else if (_activities.isEmpty)
-          const Text('No activity logs found.', style: TextStyle(color: AppTheme.zinc700, fontSize: 12))
+          const Text('No logs recorded yet.', style: TextStyle(color: AppTheme.zinc800, fontSize: 12))
         else
           ..._activities.map((a) => _buildActivityItem(a)),
       ],
@@ -320,20 +421,35 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
   Widget _buildActivityItem(ChallengeActivity activity) {
     IconData icon = LucideIcons.circle;
-    if (activity.type == 'submission_created') icon = LucideIcons.plusCircle;
-    if (activity.type == 'submission_edited') icon = LucideIcons.edit3;
-    if (activity.type == 'approved') icon = LucideIcons.checkCircle2;
-    if (activity.type == 'rejected') icon = LucideIcons.xCircle;
+    Color iconColor = AppTheme.zinc700;
+    
+    if (activity.type == 'submission_created') {
+      icon = LucideIcons.plusCircle;
+      iconColor = AppTheme.white;
+    } else if (activity.type == 'submission_edited') {
+      icon = LucideIcons.edit3;
+    } else if (activity.type == 'approved') {
+      icon = LucideIcons.checkCircle2;
+      iconColor = Colors.green;
+    } else if (activity.type == 'rejected') {
+      icon = LucideIcons.xCircle;
+      iconColor = Colors.redAccent;
+    }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
+    return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Column(
             children: [
-              Icon(icon, size: 16, color: activity.type == 'approved' ? AppTheme.white : AppTheme.zinc700),
-              Container(width: 1, height: 40, color: AppTheme.zinc900),
+              Icon(icon, size: 14, color: iconColor),
+              Expanded(
+                child: Container(
+                  width: 1,
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  color: AppTheme.zinc900,
+                ),
+              ),
             ],
           ),
           const SizedBox(width: 16),
@@ -359,6 +475,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                   activity.message ?? '',
                   style: const TextStyle(color: AppTheme.zinc600, fontSize: 12),
                 ),
+                const SizedBox(height: 24),
               ],
             ),
           ),
@@ -371,27 +488,37 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     return Center(
       child: Column(
         children: [
-          const SizedBox(height: 80),
-          const Icon(LucideIcons.fileQuestion, size: 48, color: AppTheme.zinc900),
-          const SizedBox(height: 24),
+          const SizedBox(height: 60),
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: AppTheme.zinc950,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppTheme.zinc900),
+            ),
+            child: const Icon(LucideIcons.fileQuestion, size: 40, color: AppTheme.zinc800),
+          ),
+          const SizedBox(height: 32),
           const Text(
-            'No submission yet.',
-            style: TextStyle(color: AppTheme.zinc600, fontSize: 16, fontWeight: FontWeight.bold),
+            'PENDING SUBMISSION',
+            style: TextStyle(color: AppTheme.white, fontSize: 14, fontWeight: FontWeight.bold, letterSpacing: 1),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            isRecipient 
+                ? 'Your friend is waiting for your solution.'
+                : 'Waiting for your friend to upload their proof.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.zinc600, fontSize: 13),
           ),
           if (isRecipient) ...[
-            const SizedBox(height: 12),
-            const Text(
-              'Submit your solution using the structured Note system.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.zinc800, fontSize: 13),
-            ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 40),
             CustomButton(
-              text: 'Create Submission',
+              text: 'Start Submission',
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: challenge))),
               backgroundColor: AppTheme.white,
               textColor: AppTheme.black,
-              width: 200,
+              width: 220,
             ),
           ],
         ],
@@ -405,13 +532,17 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: AppTheme.black,
         border: Border(top: BorderSide(color: AppTheme.zinc900)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, -10)),
+        ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          if (isRecipient)
+          if (isRecipient && latestVersion.status != 'approved')
             CustomButton(
               text: 'Edit Submission',
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: challenge, existingSubmission: submission))),
@@ -427,8 +558,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                     text: 'Decline',
                     onPressed: () => _showReviewDialog(submission.id, 'rejected', latestVersion.versionNumber),
                     backgroundColor: AppTheme.zinc950,
-                    textColor: AppTheme.white,
-                    borderColor: AppTheme.zinc800,
+                    textColor: Colors.redAccent,
+                    borderColor: AppTheme.zinc900,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -445,11 +576,15 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           ],
           if (submission.versions.length > 1) ...[
             const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () => _showComparison(submission),
-              icon: const Icon(LucideIcons.layers, size: 14),
-              label: const Text('Compare with previous version', style: TextStyle(fontSize: 12)),
-              style: TextButton.styleFrom(foregroundColor: AppTheme.zinc600),
+            GestureDetector(
+              onTap: () => _showComparison(submission),
+              child: const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  'COMPARE WITH PREVIOUS VERSION',
+                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1),
+                ),
+              ),
             ),
           ],
         ],
@@ -485,8 +620,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
               maxLines: 4,
               style: const TextStyle(color: AppTheme.white),
               decoration: InputDecoration(
-                labelText: 'Add a note (optional)',
-                labelStyle: const TextStyle(color: AppTheme.zinc500),
+                hintText: 'Add a note for your friend (optional)',
+                hintStyle: const TextStyle(color: AppTheme.zinc700),
                 filled: true,
                 fillColor: AppTheme.zinc900,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
@@ -496,7 +631,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             CustomButton(
               text: 'Confirm Review',
               onPressed: () async {
-                final success = await context.read<ChallengeProvider>().reviewSubmission(
+                final challengeProvider = context.read<ChallengeProvider>();
+                final success = await challengeProvider.reviewSubmission(
                   submissionId, 
                   status, 
                   versionNumber, 
