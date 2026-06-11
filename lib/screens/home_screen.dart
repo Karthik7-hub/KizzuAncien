@@ -75,8 +75,9 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
 
     final recentFriendActivity = challengeProvider.challenges
         .where((c) => c.recipient.id != user.id && c.status != 'pending')
-        .take(5)
         .toList();
+    recentFriendActivity.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    final displayActivity = recentFriendActivity.take(5).toList();
 
     final recentNotifications = notificationProvider.notifications.take(3).toList();
 
@@ -108,10 +109,10 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   _buildQuickActions(),
                   const SizedBox(height: 40),
 
-                  if (recentFriendActivity.isNotEmpty) ...[
+                  if (displayActivity.isNotEmpty) ...[
                     _buildSectionHeader('FRIEND ACTIVITY'),
                     const SizedBox(height: 16),
-                    ...recentFriendActivity.map((c) => _buildActivityItem(c)),
+                    ...displayActivity.map((c) => _buildActivityItem(c)),
                     const SizedBox(height: 40),
                   ],
 

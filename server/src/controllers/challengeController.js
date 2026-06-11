@@ -1,5 +1,6 @@
 const Challenge = require('../models/Challenge');
 const ChallengeSubmission = require('../models/ChallengeSubmission');
+const ChallengeActivity = require('../models/ChallengeActivity');
 const User = require('../models/User');
 const Friend = require('../models/Friend');
 const { createCappedNotification } = require('../utils/notificationUtils');
@@ -60,13 +61,13 @@ exports.getChallenges = async (req, res, next) => {
     });
 
     // Merge submissions into challenges
-    const results = challenges.map(challenge => {
-      const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+    const results = await Promise.all(challenges.map(async challenge => {
+      let submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
       return {
         ...challenge.toObject(),
         submission: submission || null
       };
-    });
+    }));
 
     res.json(results);
   } catch (error) {
@@ -95,13 +96,13 @@ exports.getSharedChallenges = async (req, res, next) => {
     });
 
     // Merge submissions into challenges
-    const results = challenges.map(challenge => {
-      const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+    const results = await Promise.all(challenges.map(async challenge => {
+      let submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
       return {
         ...challenge.toObject(),
         submission: submission || null
       };
-    });
+    }));
 
     res.json(results);
   } catch (error) {
@@ -131,36 +132,61 @@ exports.getSubmissionByChallenge = async (req, res, next) => {
   }
 };
 
+exports.uploadAttachment = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'No file provided' });
+    }
+    const uploadResult = await uploadImage(req.file.buffer, req.file.originalname);
+    res.json({ url: uploadResult.url });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.submitProof = async (req, res, next) => {
   try {
-    const { challengeId, proofText, proofType } = req.body;
+    const { challengeId, notes } = req.body;
     const challenge = await Challenge.findById(challengeId);
 
     if (!challenge || challenge.recipient.toString() !== req.user._id.toString()) {
-      return res.status(404).json({ message: 'Challenge not found' });
+      return res.status(404).json({ message: 'Challenge not found or not authorized' });
     }
 
-    if (challenge.status !== 'pending') {
-      return res.status(400).json({ message: 'Challenge is not in a pending state' });
+    let submission = await ChallengeSubmission.findOne({ challenge: challengeId, submitter: req.user._id });
+
+    if (submission) {
+      return res.status(400).json({ message: 'Submission already exists. Use edit instead.' });
     }
 
-    let proofUrl = req.body.proofUrl;
+    const parsedNotes = typeof notes === 'string' ? JSON.parse(notes) : notes;
 
-    if (req.file) {
-      const uploadResult = await uploadImage(req.file.buffer, req.file.originalname);
-      proofUrl = uploadResult.url;
-    }
+    const initialVersion = {
+      versionNumber: 1,
+      notes: parsedNotes,
+      status: 'pending',
+      createdBy: req.user._id
+    };
 
-    const submission = await ChallengeSubmission.create({
+    submission = await ChallengeSubmission.create({
       challenge: challengeId,
       submitter: req.user._id,
-      proofUrl,
-      proofText,
-      proofType
+      currentVersion: 1,
+      versions: [initialVersion],
+      status: 'pending'
     });
 
     challenge.status = 'submitted';
     await challenge.save();
+
+    // Log Activity
+    await ChallengeActivity.create({
+      challenge: challengeId,
+      user: req.user._id,
+      type: 'submission_created',
+      versionNumber: 1,
+      message: `${req.user.name} created submission v1`
+    });
 
     await createCappedNotification({
       recipient: challenge.creator,
@@ -187,142 +213,215 @@ exports.submitProof = async (req, res, next) => {
   }
 };
 
-exports.reviewSubmission = async (req, res, next) => {
+exports.editSubmission = async (req, res, next) => {
   try {
-    const { submissionId, status } = req.body; // 'approved' or 'rejected'
+    const { submissionId, notes } = req.body;
     const submission = await ChallengeSubmission.findById(submissionId).populate('challenge');
 
-    if (!submission) {
-      // If submissionId is actually challengeId (fallback for UI simplicity)
-      const sub = await ChallengeSubmission.findOne({ challenge: submissionId }).populate('challenge');
-      if (sub) {
-        return handleReview(sub, status, req, res);
-      }
-      return res.status(404).json({ message: 'Submission not found' });
+    if (!submission || submission.submitter.toString() !== req.user._id.toString()) {
+      return res.status(404).json({ message: 'Submission not found or not authorized' });
     }
 
-    return handleReview(submission, status, req, res);
+    const parsedNotes = typeof notes === 'string' ? JSON.parse(notes) : notes;
+    const nextVersionNumber = submission.currentVersion + 1;
+
+    const newVersion = {
+      versionNumber: nextVersionNumber,
+      notes: parsedNotes,
+      status: 'pending',
+      createdBy: req.user._id
+    };
+
+    submission.versions.push(newVersion);
+    submission.currentVersion = nextVersionNumber;
+    submission.status = 'pending';
+    await submission.save();
+
+    const challenge = submission.challenge;
+    challenge.status = 'submitted';
+    await challenge.save();
+
+    // Log Activity
+    await ChallengeActivity.create({
+      challenge: challenge._id,
+      user: req.user._id,
+      type: 'submission_edited',
+      versionNumber: nextVersionNumber,
+      message: `${req.user.name} updated submission to v${nextVersionNumber}`
+    });
+
+    await createCappedNotification({
+      recipient: challenge.creator,
+      sender: req.user._id,
+      type: 'submission_received',
+      relatedId: submission._id,
+      message: `${req.user.name} updated verification for ${challenge.title}`
+    });
+
+    res.json(submission);
   } catch (error) {
     next(error);
   }
 };
 
-async function handleReview(submission, status, req, res) {
-  if (submission.challenge.creator.toString() !== req.user._id.toString()) {
-    return res.status(403).json({ message: 'Not authorized to review this submission' });
+exports.getChallengeActivities = async (req, res, next) => {
+  try {
+    const activities = await ChallengeActivity.find({ challenge: req.params.challengeId })
+      .populate('user', 'name profileImageUrl')
+      .sort('-createdAt');
+    res.json(activities);
+  } catch (error) {
+    next(error);
   }
+};
 
-  if (submission.status !== 'pending') {
-    return res.status(400).json({ message: 'Submission has already been reviewed' });
-  }
+exports.reviewSubmission = async (req, res, next) => {
+  try {
+    const { submissionId, status, versionNumber, reviewerNote } = req.body;
+    const submission = await ChallengeSubmission.findById(submissionId).populate('challenge');
 
-  submission.status = status;
-  await submission.save();
+    if (!submission) {
+      return res.status(404).json({ message: 'Submission not found' });
+    }
 
-  const challenge = submission.challenge;
-  challenge.status = status;
-  await challenge.save();
+    const version = submission.versions.find(v => v.versionNumber === versionNumber);
+    if (!version) {
+      return res.status(404).json({ message: 'Version not found' });
+    }
 
-  if (status === 'approved') {
-    const points = 5;
+    if (submission.challenge.creator.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to review this submission' });
+    }
 
-    // Award relationship points
-    const friendRel = await Friend.findOne({
-      $or: [
-        { requester: challenge.creator, recipient: challenge.recipient },
-        { requester: challenge.recipient, recipient: challenge.creator }
-      ],
-      status: 'accepted'
+    if (version.status !== 'pending') {
+      return res.status(400).json({ message: 'Version has already been reviewed' });
+    }
+
+    version.status = status;
+    version.reviewerNote = reviewerNote;
+    version.reviewedAt = new Date();
+
+    if (versionNumber === submission.currentVersion) {
+      submission.status = status;
+    }
+
+    await submission.save();
+
+    const challenge = submission.challenge;
+    if (submission.status === 'approved') {
+       challenge.status = 'approved';
+    } else if (submission.status === 'rejected' && versionNumber === submission.currentVersion) {
+       challenge.status = 'rejected';
+    }
+    await challenge.save();
+
+    // Log Activity
+    await ChallengeActivity.create({
+      challenge: challenge._id,
+      user: req.user._id,
+      type: status === 'approved' ? 'approved' : 'rejected',
+      versionNumber: versionNumber,
+      message: `${req.user.name} ${status} submission v${versionNumber}`
     });
 
-    if (friendRel) {
-      if (friendRel.requester.toString() === challenge.recipient.toString()) {
-        friendRel.pointsRequester += points;
-      } else {
-        friendRel.pointsRecipient += points;
-      }
-
-      const today = new Date().setHours(0,0,0,0);
-      const lastUpdate = friendRel.lastStreakUpdate ? new Date(friendRel.lastStreakUpdate).setHours(0,0,0,0) : null;
-
-      if (!lastUpdate || today > lastUpdate) {
-        const yesterday = today - 86400000;
-        const twoDaysAgo = today - (86400000 * 2);
-
-        if (lastUpdate === yesterday || lastUpdate === twoDaysAgo) {
-          friendRel.streak += 1;
-        } else {
-          friendRel.streak = 1;
-        }
-
-        friendRel.lastStreakUpdate = new Date();
-        if (friendRel.streak > (friendRel.longestStreak || 0)) {
-          friendRel.longestStreak = friendRel.streak;
-        }
-      }
-      await friendRel.save();
-
-      // Update recipient's user-level streak metrics
-      const allRecipientFriendships = await Friend.find({
-        $or: [{ requester: challenge.recipient }, { recipient: challenge.recipient }],
+    if (status === 'approved' && versionNumber === submission.currentVersion) {
+      const points = 5;
+      const friendRel = await Friend.findOne({
+        $or: [
+          { requester: challenge.creator, recipient: challenge.recipient },
+          { requester: challenge.recipient, recipient: challenge.creator }
+        ],
         status: 'accepted'
       });
 
-      const recipient = await User.findById(challenge.recipient);
-      const bestCurrentStreak = Math.max(...allRecipientFriendships.map(f => f.streak), 0);
-      recipient.currentStreak = bestCurrentStreak;
-      if (bestCurrentStreak > (recipient.longestStreak || 0)) {
-        recipient.longestStreak = bestCurrentStreak;
-      }
-      await recipient.save();
+      if (friendRel) {
+        if (friendRel.requester.toString() === challenge.recipient.toString()) {
+          friendRel.pointsRequester += points;
+        } else {
+          friendRel.pointsRecipient += points;
+        }
 
-      // Also update creator's user-level streak metrics
-      const creator = await User.findById(challenge.creator);
-      if (creator) {
-        const allCreatorFriendships = await Friend.find({
-          $or: [{ requester: challenge.creator }, { recipient: challenge.creator }],
+        const today = new Date().setHours(0,0,0,0);
+        const lastUpdate = friendRel.lastStreakUpdate ? new Date(friendRel.lastStreakUpdate).setHours(0,0,0,0) : null;
+
+        if (!lastUpdate || today > lastUpdate) {
+          const yesterday = today - 86400000;
+          const twoDaysAgo = today - (86400000 * 2);
+
+          if (lastUpdate === yesterday || lastUpdate === twoDaysAgo) {
+            friendRel.streak += 1;
+          } else {
+            friendRel.streak = 1;
+          }
+
+          friendRel.lastStreakUpdate = new Date();
+          if (friendRel.streak > (friendRel.longestStreak || 0)) {
+            friendRel.longestStreak = friendRel.streak;
+          }
+        }
+        await friendRel.save();
+
+        const allRecipientFriendships = await Friend.find({
+          $or: [{ requester: challenge.recipient }, { recipient: challenge.recipient }],
           status: 'accepted'
         });
-        const creatorBestStreak = Math.max(...allCreatorFriendships.map(f => f.streak), 0);
-        creator.currentStreak = creatorBestStreak;
-        if (creatorBestStreak > (creator.longestStreak || 0)) {
-          creator.longestStreak = creatorBestStreak;
+
+        const recipient = await User.findById(challenge.recipient);
+        const bestCurrentStreak = Math.max(...allRecipientFriendships.map(f => f.streak), 0);
+        recipient.currentStreak = bestCurrentStreak;
+        if (bestCurrentStreak > (recipient.longestStreak || 0)) {
+          recipient.longestStreak = bestCurrentStreak;
         }
-        await creator.save();
+        await recipient.save();
+
+        const creator = await User.findById(challenge.creator);
+        if (creator) {
+          const allCreatorFriendships = await Friend.find({
+            $or: [{ requester: challenge.creator }, { recipient: challenge.creator }],
+            status: 'accepted'
+          });
+          const creatorBestStreak = Math.max(...allCreatorFriendships.map(f => f.streak), 0);
+          creator.currentStreak = creatorBestStreak;
+          if (creatorBestStreak > (creator.longestStreak || 0)) {
+            creator.longestStreak = creatorBestStreak;
+          }
+          await creator.save();
+        }
       }
+
+      await PointTransaction.create({
+        user: challenge.recipient,
+        amount: points,
+        type: 'challenge_reward',
+        relatedId: challenge._id,
+        description: `Reward for completing: ${challenge.title}`
+      });
     }
 
-    await PointTransaction.create({
-      user: challenge.recipient,
-      amount: points,
-      type: 'challenge_reward',
+    await createCappedNotification({
+      recipient: challenge.recipient,
+      sender: req.user._id,
+      type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected',
       relatedId: challenge._id,
-      description: `Reward for completing: ${challenge.title}`
+      message: status === 'approved'
+        ? `Verification for "${challenge.title}" approved`
+        : `Verification for "${challenge.title}" declined`
     });
+
+    const recipient = await User.findById(challenge.recipient);
+    if (recipient && recipient.fcmToken) {
+      await sendPushNotification(
+        recipient.fcmToken,
+        status === 'approved' ? 'Approved' : 'Declined',
+        status === 'approved'
+          ? `${challenge.title}\nVerification accepted`
+          : `${challenge.title}\nVerification declined`,
+        { type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected', id: challenge._id.toString() }
+      );
+    }
+
+    res.json({ submission, challenge });
+  } catch (error) {
+    next(error);
   }
-
-  await createCappedNotification({
-    recipient: challenge.recipient,
-    sender: req.user._id,
-    type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected',
-    relatedId: challenge._id,
-    message: status === 'approved'
-      ? `Verification for "${challenge.title}" approved`
-      : `Verification for "${challenge.title}" declined`
-  });
-
-  // Send Push Notification
-  const recipient = await User.findById(challenge.recipient);
-  if (recipient && recipient.fcmToken) {
-    await sendPushNotification(
-      recipient.fcmToken,
-      status === 'approved' ? 'Approved' : 'Declined',
-      status === 'approved'
-        ? `${challenge.title}\nVerification accepted`
-        : `${challenge.title}\nVerification declined`,
-      { type: status === 'approved' ? 'challenge_approved' : 'challenge_rejected', id: challenge._id.toString() }
-    );
-  }
-
-  res.json({ submission, challenge });
-}
+};

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../screens/challenge_details_screen.dart';
@@ -17,13 +19,16 @@ class ChallengeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthProvider>().user;
+    final bool isCreator = challenge.creator.id == user?.id;
+
     final bool isCompleted = challenge.status == 'approved';
     final bool isSubmitted = challenge.status == 'submitted';
     final bool isDeclined = challenge.status == 'rejected';
     
-    String actionText = 'Complete Challenge →';
+    String actionText = isCreator ? 'Waiting for Friend →' : 'Complete Challenge →';
     if (isSubmitted) {
-      actionText = 'Reviewing...';
+      actionText = isCreator ? 'Review Proof →' : 'Reviewing...';
     } else if (isCompleted) {
       actionText = 'View Details →';
     } else if (isDeclined) {

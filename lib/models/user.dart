@@ -9,6 +9,8 @@ class User {
   final int? relationshipPoints;
   final int currentStreak;
   final int longestStreak;
+  final String? relationshipStatus;
+  final String? requestId;
   final int? sharedStreak;
   final int? longestSharedStreak;
   final DateTime? lastStreakUpdate;
@@ -25,6 +27,8 @@ class User {
     this.relationshipPoints,
     required this.currentStreak,
     required this.longestStreak,
+    this.relationshipStatus,
+    this.requestId,
     this.sharedStreak,
     this.longestSharedStreak,
     this.lastStreakUpdate,
@@ -43,6 +47,8 @@ class User {
       relationshipPoints: json['relationshipPoints'],
       currentStreak: json['currentStreak'] ?? 0,
       longestStreak: json['longestStreak'] ?? 0,
+      relationshipStatus: json['relationshipStatus'],
+      requestId: json['requestId'],
       sharedStreak: json['sharedStreak'],
       longestSharedStreak: json['longestSharedStreak'],
       lastStreakUpdate: json['lastStreakUpdate'] != null ? DateTime.parse(json['lastStreakUpdate']) : null,
@@ -61,6 +67,8 @@ class User {
     int? relationshipPoints,
     int? currentStreak,
     int? longestStreak,
+    String? relationshipStatus,
+    String? requestId,
     int? sharedStreak,
     int? longestSharedStreak,
     DateTime? lastStreakUpdate,
@@ -77,6 +85,8 @@ class User {
       relationshipPoints: relationshipPoints ?? this.relationshipPoints,
       currentStreak: currentStreak ?? this.currentStreak,
       longestStreak: longestStreak ?? this.longestStreak,
+      relationshipStatus: relationshipStatus ?? this.relationshipStatus,
+      requestId: requestId ?? this.requestId,
       sharedStreak: sharedStreak ?? this.sharedStreak,
       longestSharedStreak: longestSharedStreak ?? this.longestSharedStreak,
       lastStreakUpdate: lastStreakUpdate ?? this.lastStreakUpdate,

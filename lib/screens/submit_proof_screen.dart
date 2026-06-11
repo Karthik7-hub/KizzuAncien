@@ -7,37 +7,202 @@ import '../models/challenge.dart';
 import '../providers/challenge_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/custom_text_field.dart';
-import '../widgets/avatar_widget.dart';
+import '../widgets/note_widgets.dart';
 import '../utils/logger.dart';
 
 class SubmitProofScreen extends StatefulWidget {
   final Challenge challenge;
-  const SubmitProofScreen({super.key, required this.challenge});
+  final ChallengeSubmission? existingSubmission;
+  
+  const SubmitProofScreen({super.key, required this.challenge, this.existingSubmission});
 
   @override
   State<SubmitProofScreen> createState() => _SubmitProofScreenState();
 }
 
 class _SubmitProofScreenState extends State<SubmitProofScreen> {
-  final TextEditingController _textController = TextEditingController();
-  File? _imageFile;
-  final ImagePicker _picker = ImagePicker();
+  final List<Note> _notes = [];
+  bool _isSubmitting = false;
 
-  Future<void> _pickImage(ImageSource source) async {
-    try {
-      final XFile? pickedFile = await _picker.pickImage(
-        source: source,
-        imageQuality: 70, // Compress for faster upload
-        maxWidth: 1200,   // Prevent massive resolution issues
-      );
-      if (pickedFile != null) {
-        setState(() {
-          _imageFile = File(pickedFile.path);
-        });
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingSubmission != null && widget.existingSubmission!.versions.isNotEmpty) {
+      // Initialize with latest version's notes if editing
+      final latestVersion = widget.existingSubmission!.versions.last;
+      _notes.addAll(latestVersion.notes);
+    }
+  }
+
+  void _addNote(String type) async {
+    if (type == 'explanation') {
+      _showEditNoteDialog(Note(id: '', type: 'explanation', content: '', version: 1, createdAt: DateTime.now(), updatedAt: DateTime.now()));
+    } else if (type == 'code') {
+      _showEditNoteDialog(Note(id: '', type: 'code', content: '', version: 1, createdAt: DateTime.now(), updatedAt: DateTime.now(), metadata: {'language': 'dart'}));
+    } else if (type == 'link') {
+      _showEditNoteDialog(Note(id: '', type: 'link', content: '', version: 1, createdAt: DateTime.now(), updatedAt: DateTime.now()));
+    } else if (type == 'image') {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+      if (image != null) {
+        if (mounted) {
+           setState(() => _isSubmitting = true);
+           final url = await context.read<ChallengeProvider>().uploadAttachment(File(image.path));
+           setState(() => _isSubmitting = false);
+           if (url != null) {
+             setState(() {
+               _notes.add(Note(
+                 id: DateTime.now().millisecondsSinceEpoch.toString(),
+                 type: 'image',
+                 content: url,
+                 version: 1,
+                 createdAt: DateTime.now(),
+                 updatedAt: DateTime.now(),
+               ));
+             });
+           }
+        }
       }
-    } catch (e) {
-      AppLogger.error('Error picking image', e);
+    }
+  }
+
+  void _showEditNoteDialog(Note note, {int? index}) {
+    final titleController = TextEditingController(text: note.title);
+    final contentController = TextEditingController(text: note.content);
+    String selectedLanguage = note.metadata?['language'] ?? 'dart';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.zinc950,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 32,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${index == null ? "Add" : "Edit"} ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())} Note',
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white),
+              ),
+              const SizedBox(height: 24),
+              TextField(
+                controller: titleController,
+                style: const TextStyle(color: AppTheme.white),
+                decoration: InputDecoration(
+                  labelText: 'Title (Optional)',
+                  labelStyle: const TextStyle(color: AppTheme.zinc500),
+                  filled: true,
+                  fillColor: AppTheme.zinc900,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (note.type == 'code') ...[
+                const Text('LANGUAGE', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
+                  child: DropdownButton<String>(
+                    value: selectedLanguage,
+                    isExpanded: true,
+                    underline: const SizedBox(),
+                    dropdownColor: AppTheme.zinc900,
+                    items: ['dart', 'javascript', 'python', 'cpp', 'html', 'css', 'java'].map((lang) {
+                      return DropdownMenuItem(value: lang, child: Text(lang.toUpperCase(), style: const TextStyle(color: AppTheme.white, fontSize: 13)));
+                    }).toList(),
+                    onChanged: (val) => setModalState(() => selectedLanguage = val!),
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+              TextField(
+                controller: contentController,
+                maxLines: note.type == 'explanation' || note.type == 'code' ? 10 : 1,
+                style: const TextStyle(color: AppTheme.white, fontFamily: 'monospace'),
+                decoration: InputDecoration(
+                  labelText: note.type == 'link' ? 'URL' : 'Content',
+                  labelStyle: const TextStyle(color: AppTheme.zinc500),
+                  filled: true,
+                  fillColor: AppTheme.zinc900,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                  alignLabelWithHint: true,
+                ),
+              ),
+              const SizedBox(height: 32),
+              CustomButton(
+                text: 'Save Note',
+                onPressed: () {
+                  String content = contentController.text.trim();
+                  if (content.isEmpty) return;
+
+                  if (note.type == 'link') {
+                    // Simple URL validation
+                    final uri = Uri.tryParse(content);
+                    if (uri == null || !uri.hasAbsolutePath) {
+                       ScaffoldMessenger.of(context).showSnackBar(
+                         const SnackBar(content: Text('Please enter a valid URL (including http/https)'), backgroundColor: Colors.redAccent)
+                       );
+                       return;
+                    }
+                  }
+
+                  final updatedNote = Note(
+                    id: note.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : note.id,
+                    type: note.type,
+                    title: titleController.text.trim(),
+                    content: content,
+                    metadata: note.type == 'code' ? {'language': selectedLanguage} : null,
+                    version: note.version,
+                    createdAt: note.createdAt,
+                    updatedAt: DateTime.now(),
+                  );
+                  setState(() {
+                    if (index == null) {
+                      _notes.add(updatedNote);
+                    } else {
+                      _notes[index] = updatedNote;
+                    }
+                  });
+                  Navigator.pop(context);
+                },
+                backgroundColor: AppTheme.white,
+                textColor: AppTheme.black,
+              ),
+              const SizedBox(height: 40),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _handleSubmit() async {
+    if (_notes.isEmpty) return;
+    setState(() => _isSubmitting = true);
+    
+    bool success;
+    if (widget.existingSubmission == null) {
+      success = await context.read<ChallengeProvider>().submitNotes(widget.challenge.id, _notes);
+    } else {
+      success = await context.read<ChallengeProvider>().editSubmission(widget.existingSubmission!.id, _notes);
+    }
+
+    if (mounted) {
+      setState(() => _isSubmitting = false);
+      if (success) {
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit. Please try again.')));
+      }
     }
   }
 
@@ -52,145 +217,151 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
           icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Complete Challenge',
-          style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
+        title: Text(
+          widget.existingSubmission == null ? 'NEW SUBMISSION' : 'EDIT SUBMISSION',
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
         centerTitle: true,
       ),
       body: Column(
         children: [
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12),
-              child: Column(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: AppTheme.zinc900,
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: AppTheme.zinc800),
-                    ),
-                    child: Column(
-                      children: [
-                        AvatarWidget(user: widget.challenge.creator, size: 48),
-                        const SizedBox(height: 12),
-                        Text(
-                          widget.challenge.title,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.white),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Requested by ${widget.challenge.creator.name}',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppTheme.zinc500, fontSize: 15),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-                  const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: 8, bottom: 12),
-                      child: Text(
-                        'UPLOAD PROOF',
-                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
-                      ),
-                    ),
-                  ),
-                  if (_imageFile != null)
-                    Stack(
-                      children: [
-                        Container(
-                          height: 240,
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 24),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(color: AppTheme.zinc800),
-                            image: DecorationImage(image: FileImage(_imageFile!), fit: BoxFit.cover),
-                          ),
-                        ),
-                        Positioned(
-                          top: 12,
-                          right: 12,
-                          child: GestureDetector(
-                            onTap: () => setState(() => _imageFile = null),
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
-                              child: const Icon(LucideIcons.x, color: Colors.white, size: 16),
-                            ),
-                          ),
-                        ),
-                      ],
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(child: _buildProofOption(LucideIcons.camera, 'Camera', () => _pickImage(ImageSource.camera))),
-                        const SizedBox(width: 12),
-                        Expanded(child: _buildProofOption(LucideIcons.image, 'Gallery', () => _pickImage(ImageSource.gallery))),
-                      ],
-                    ),
-                  const SizedBox(height: 24),
-                  CustomTextField(controller: _textController, hintText: 'Add a comment about your progress...', maxLines: 4),
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
+            child: _notes.isEmpty 
+              ? _buildEmptyState() 
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                  itemCount: _notes.length,
+                  onReorder: (oldIndex, newIndex) {
+                    setState(() {
+                      if (oldIndex < newIndex) newIndex -= 1;
+                      final item = _notes.removeAt(oldIndex);
+                      _notes.insert(newIndex, item);
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    final note = _notes[index];
+                    return Padding(
+                      key: ValueKey(note.id),
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: _buildNoteItem(note, index),
+                    );
+                  },
+                ),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            child: CustomButton(
-              text: 'Submit Verification',
-              isLoading: context.watch<ChallengeProvider>().isLoading,
-              onPressed: () async {
-                try {
-                  final success = await context.read<ChallengeProvider>().submitProof(
-                    widget.challenge.id,
-                    proofText: _textController.text,
-                    proofType: widget.challenge.proofType,
-                    file: _imageFile,
-                  );
-                  if (success && context.mounted) {
-                    Navigator.of(context).pop();
-                  }
-                } catch (e) {
-                   // Error handled by provider
-                }
-              },
-              backgroundColor: AppTheme.white,
-              textColor: AppTheme.black,
-              icon: const Icon(LucideIcons.checkCircle2, size: 20),
+          _buildBottomActions(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNoteItem(Note note, int index) {
+    IconData icon = LucideIcons.fileText;
+    if (note.type == 'code') icon = LucideIcons.code;
+    if (note.type == 'image') icon = LucideIcons.image;
+    if (note.type == 'link') icon = LucideIcons.link;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.zinc900.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.zinc800),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: Icon(icon, color: AppTheme.white, size: 20),
+        title: Text(
+          note.title?.isNotEmpty == true ? note.title! : 'Untitled ${note.type}',
+          style: const TextStyle(color: AppTheme.white, fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+        subtitle: Text(
+          note.type == 'image' ? 'Image Attachment' : note.content,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(color: AppTheme.zinc600, fontSize: 12),
+        ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(LucideIcons.edit3, size: 16, color: AppTheme.zinc500),
+              onPressed: () => _showEditNoteDialog(note, index: index),
             ),
+            IconButton(
+              icon: const Icon(LucideIcons.trash2, size: 16, color: AppTheme.zinc500),
+              onPressed: () => setState(() => _notes.removeAt(index)),
+            ),
+            const Icon(LucideIcons.gripVertical, size: 18, color: AppTheme.zinc700),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmptyState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(LucideIcons.stickyNote, size: 48, color: AppTheme.zinc900),
+          const SizedBox(height: 16),
+          const Text(
+            'Your submission is empty.\nAdd notes to explain your solution.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: AppTheme.zinc700, fontSize: 14, height: 1.5),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildProofOption(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildBottomActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+      decoration: BoxDecoration(
+        color: AppTheme.black,
+        border: Border(top: BorderSide(color: AppTheme.zinc900)),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildAddAction(LucideIcons.fileText, 'EXPLANATION', () => _addNote('explanation')),
+              _buildAddAction(LucideIcons.code, 'CODE', () => _addNote('code')),
+              _buildAddAction(LucideIcons.image, 'IMAGE', () => _addNote('image')),
+              _buildAddAction(LucideIcons.link, 'LINK', () => _addNote('link')),
+            ],
+          ),
+          const SizedBox(height: 24),
+          CustomButton(
+            text: widget.existingSubmission == null ? 'Submit Solution' : 'Update & Re-verify',
+            isLoading: _isSubmitting,
+            onPressed: _notes.isEmpty ? null : _handleSubmit,
+            backgroundColor: AppTheme.white,
+            textColor: AppTheme.black,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddAction(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 100,
-        decoration: BoxDecoration(
-          color: AppTheme.zinc900,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.zinc800),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: AppTheme.white, size: 24),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(color: AppTheme.zinc400, fontSize: 13, fontWeight: FontWeight.bold)),
-          ],
-        ),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.zinc900,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppTheme.zinc800),
+            ),
+            child: Icon(icon, color: AppTheme.white, size: 20),
+          ),
+          const SizedBox(height: 8),
+          Text(label, style: const TextStyle(color: AppTheme.zinc600, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        ],
       ),
     );
   }

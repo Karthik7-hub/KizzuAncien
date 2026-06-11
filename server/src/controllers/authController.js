@@ -118,17 +118,19 @@ exports.refreshToken = async (req, res, next) => {
     const { token } = req.body;
     if (!token) return res.status(401).json({ message: 'Refresh Token is required' });
 
-    jwt.verify(token, process.env.JWT_REFRESH_SECRET, async (err, decoded) => {
-      if (err) return res.status(403).json({ message: 'Refresh token is invalid' });
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
 
       const user = await User.findById(decoded.id);
       if (!user) {
         return res.status(403).json({ message: 'User no longer exists' });
       }
 
-      const tokens = generateTokens(decoded.id);
+      const tokens = generateTokens(user._id);
       res.json(tokens);
-    });
+    } catch (err) {
+      return res.status(403).json({ message: 'Refresh token is invalid or expired' });
+    }
   } catch (error) {
     next(error);
   }

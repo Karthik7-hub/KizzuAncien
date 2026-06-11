@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
@@ -65,7 +66,7 @@ class TruthDareProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> sendTruth(BuildContext context, String recipientId, String question) async {
+  Future<void> sendTruth(BuildContext context, String recipientId, String question) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -76,17 +77,15 @@ class TruthDareProvider extends ChangeNotifier {
       if (context.mounted) {
         await context.read<AuthProvider>().checkAuth();
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['message'] ?? 'Failed to send truth');
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return true;
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
   }
 
-  Future<bool> sendDare(BuildContext context, String recipientId, String task) async {
+  Future<void> sendDare(BuildContext context, String recipientId, String task) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -97,13 +96,11 @@ class TruthDareProvider extends ChangeNotifier {
       if (context.mounted) {
         await context.read<AuthProvider>().checkAuth();
       }
+    } on DioException catch (e) {
+      throw Exception(e.response?.data['message'] ?? 'Failed to send dare');
+    } finally {
       _isLoading = false;
       notifyListeners();
-      return true;
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      return false;
     }
   }
 }

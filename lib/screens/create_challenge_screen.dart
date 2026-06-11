@@ -69,15 +69,18 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.black,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leading: widget.recipient != null 
+          ? IconButton(
+              icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
+              onPressed: () => Navigator.pop(context),
+            )
+          : null,
         title: const Text(
           'New Challenge',
           style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [

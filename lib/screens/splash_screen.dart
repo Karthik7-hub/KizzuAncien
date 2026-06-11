@@ -52,8 +52,16 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       minDisplayTime,
     ]);
 
-    final authStatus = results[0] as AuthStatus;
+    AuthStatus authStatus = results[0] as AuthStatus;
     
+    // Fallback: Try silent sign-in if our tokens are invalid
+    if (authStatus == AuthStatus.unauthenticated) {
+      final bool silentSuccess = await authProvider.trySilentLogin();
+      if (silentSuccess) {
+        authStatus = AuthStatus.authenticated;
+      }
+    }
+
     if (authStatus == AuthStatus.authenticated) {
       NotificationService.setupFcmToken();
     }
@@ -62,10 +70,15 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       if (authStatus == AuthStatus.offline) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (_) => OfflineScreen(
+            builder: (context) => OfflineScreen(
               onRetry: () async {
-                // To retry, we simply re-run initialization
-                await _initializeApp();
+                final provider = Provider.of<AuthProvider>(context, listen: false);
+                final status = await provider.checkAuth();
+                if (status != AuthStatus.offline && context.mounted) {
+                  Navigator.of(context).pushReplacement(
+                    MaterialPageRoute(builder: (_) => status == AuthStatus.authenticated ? const MainScreen() : const AuthScreen()),
+                  );
+                }
               },
             ),
           ),

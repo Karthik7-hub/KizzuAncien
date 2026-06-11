@@ -59,30 +59,32 @@ class ChallengeProvider extends ChangeNotifier {
     }
   }
 
-  Future<bool> submitProof(String challengeId, {
-    String? proofText,
-    String? proofType,
-    File? file,
-  }) async {
+  Future<String?> uploadAttachment(File file) async {
+    try {
+      String fileName = file.path.split('/').last;
+      FormData formData = FormData.fromMap({
+        'file': await MultipartFile.fromFile(file.path, filename: fileName),
+      });
+      final response = await _apiService.dio.post('/challenges/upload', data: formData);
+      return response.data['url'];
+    } catch (e) {
+      AppLogger.error('Error uploading attachment', e);
+      return null;
+    }
+  }
+
+  Future<bool> submitNotes(String challengeId, List<Note> notes) async {
     _isLoading = true;
     notifyListeners();
     try {
-      FormData formData = FormData.fromMap({
+      await _apiService.dio.post('/challenges/submit', data: {
         'challengeId': challengeId,
-        if (proofText != null) 'proofText': proofText,
-        if (proofType != null) 'proofType': proofType,
-        if (file != null)
-          'file': await MultipartFile.fromFile(
-            file.path,
-            filename: file.path.split('/').last,
-          ),
+        'notes': notes.map((n) => n.toJson()).toList(),
       });
-
-      await _apiService.dio.post('/challenges/submit', data: formData);
       await fetchChallenges();
       return true;
     } catch (e) {
-      AppLogger.error('Error submitting proof', e);
+      AppLogger.error('Error submitting notes', e);
       return false;
     } finally {
       _isLoading = false;
@@ -90,23 +92,54 @@ class ChallengeProvider extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>?> fetchSubmission(String challengeId) async {
+  Future<bool> editSubmission(String submissionId, List<Note> notes) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.dio.post('/challenges/edit', data: {
+        'submissionId': submissionId,
+        'notes': notes.map((n) => n.toJson()).toList(),
+      });
+      await fetchChallenges();
+      return true;
+    } catch (e) {
+      AppLogger.error('Error editing submission', e);
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<ChallengeSubmission?> fetchSubmission(String challengeId) async {
     try {
       final response = await _apiService.dio.get('/challenges/$challengeId/submission');
-      return response.data;
+      return ChallengeSubmission.fromJson(response.data);
     } catch (e) {
       AppLogger.error('Error fetching submission', e);
       return null;
     }
   }
 
-  Future<bool> reviewSubmission(String submissionId, String status) async {
+  Future<List<ChallengeActivity>> fetchActivities(String challengeId) async {
+    try {
+      final response = await _apiService.dio.get('/challenges/$challengeId/activities');
+      return (response.data as List).map((a) => ChallengeActivity.fromJson(a)).toList();
+    } catch (e) {
+      AppLogger.error('Error fetching activities', e);
+      return [];
+    }
+  }
+
+  Future<bool> reviewSubmission(String submissionId, String status, int versionNumber, {String? reviewerNote}) async {
     _isLoading = true;
     notifyListeners();
     try {
       await _apiService.dio.post('/challenges/review', data: {
         'submissionId': submissionId,
         'status': status,
+        'versionNumber': versionNumber,
+        if (reviewerNote != null) 'reviewerNote': reviewerNote,
       });
       await fetchChallenges();
       return true;

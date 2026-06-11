@@ -64,37 +64,60 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
     return Scaffold(
       backgroundColor: AppTheme.black,
       body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    onChanged: (val) => setState(() => _searchQuery = val),
-                    style: const TextStyle(color: AppTheme.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search challenges...',
-                      hintStyle: const TextStyle(color: AppTheme.zinc600),
-                      prefixIcon: const Icon(LucideIcons.search, color: AppTheme.zinc500, size: 20),
-                      filled: true,
-                      fillColor: AppTheme.zinc900,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
+                const Text(
+                  'History',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.white,
+                    letterSpacing: -1,
                   ),
                 ),
-                const SizedBox(width: 12),
-                ChallengeFilterDropdown(
-                  selectedCategory: _selectedCategory,
-                  onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                Row(
+                  children: [
+                    ChallengeFilterDropdown(
+                      selectedCategory: _selectedCategory,
+                      onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+                    ),
+                    const SizedBox(width: 8),
+                    _buildSortMenu(),
+                  ],
                 ),
-                const SizedBox(width: 8),
-                _buildSortMenu(),
               ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (val) => setState(() => _searchQuery = val),
+              style: const TextStyle(color: AppTheme.white),
+              decoration: InputDecoration(
+                hintText: 'Search history...',
+                hintStyle: const TextStyle(color: AppTheme.zinc600),
+                prefixIcon: const Icon(LucideIcons.search, color: AppTheme.zinc500, size: 20),
+                filled: true,
+                fillColor: AppTheme.zinc900,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(24),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Text(
+              'ALL CHALLENGES',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5),
             ),
           ),
           Expanded(

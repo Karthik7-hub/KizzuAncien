@@ -1,9 +1,12 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide User, AuthProvider;
+import 'package:google_sign_in/google_sign_in.dart';
 import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
+import '../utils/constants.dart';
 
 enum AuthStatus { authenticated, unauthenticated, offline }
 
@@ -141,6 +144,41 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> trySilentLogin() async {
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: AppConstants.googleServerClientId,
+        scopes: ['email', 'profile'],
+      );
+      
+      final GoogleSignInAccount? googleUser = await googleSignIn.signInSilently();
+      if (googleUser == null) return false;
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+      final OAuthCredential credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+
+      final UserCredential userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      final String? firebaseIdToken = await userCredential.user?.getIdToken();
+
+      if (firebaseIdToken == null) return false;
+
+      final Map<String, dynamic> googleData = {
+        'googleId': userCredential.user!.uid,
+        'email': userCredential.user!.email,
+        'name': userCredential.user!.displayName,
+        'idToken': firebaseIdToken,
+      };
+
+      final result = await googleLogin(googleData);
+      return result['exists'] == true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> updateProfile({String? name, String? profileImageUrl, String? gender}) async {
     _isLoading = true;
     notifyListeners();
@@ -186,9 +224,9 @@ class AuthProvider extends ChangeNotifier {
     }
     
     try {
-      // Use a shorter timeout for startup check to avoid hanging the splash screen
+      // Use a longer timeout for startup check to support low internet
       final response = await _apiService.dio.get('/users/profile').timeout(
-        const Duration(seconds: 4),
+        const Duration(seconds: 12),
       );
       
       _user = User.fromJson(response.data['user']);

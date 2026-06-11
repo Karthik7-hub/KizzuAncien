@@ -64,9 +64,12 @@ app.use(errorHandler);
 // Database connection for Serverless
 const connectDB = async () => {
   if (mongoose.connection.readyState >= 1) return;
+
+  const mongoUri = process.env.DEV_MONGO_URI || process.env.MONGO_URI;
+
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('✅ MongoDB Connected');
+    await mongoose.connect(mongoUri);
+    console.log(`✅ MongoDB Connected to ${process.env.DEV_MONGO_URI ? 'Development' : 'Production'} database`);
   } catch (err) {
     console.error('❌ MongoDB Connection Error:', err.message);
   }

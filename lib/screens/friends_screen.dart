@@ -302,7 +302,7 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
                 ],
               ),
             ),
-            _buildActions(user, type, requestId),
+            _buildActions(user, type, requestId ?? user.requestId),
           ],
         ),
       ),
@@ -314,7 +314,23 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
     final isProcessing = _isUserLoading(user.id) || (requestId != null && _isUserLoading(requestId));
     final isAnyLoading = _isAnyUserLoading;
 
+    // Determine effective type based on relationship status if it's a search result
+    String effectiveType = type;
+    String? effectiveRequestId = requestId;
+    
     if (type == 'search') {
+      if (user.relationshipStatus == 'FRIENDS') {
+        effectiveType = 'friend';
+      } else if (user.relationshipStatus == 'PENDING_SENT') {
+        effectiveType = 'outgoing';
+        effectiveRequestId = user.requestId;
+      } else if (user.relationshipStatus == 'PENDING_RECEIVED') {
+        effectiveType = 'incoming';
+        effectiveRequestId = user.requestId;
+      }
+    }
+
+    if (effectiveType == 'search') {
       return IconButton(
         icon: isProcessing 
           ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.white))
@@ -326,8 +342,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           if (mounted) setState(() => _loadingStates[user.id] = false);
         },
       );
-    } else if (type == 'incoming' && requestId != null) {
-      final rId = requestId;
+    } else if (effectiveType == 'incoming' && effectiveRequestId != null) {
+      final rId = effectiveRequestId;
       return Row(
         children: [
           IconButton(
@@ -355,8 +371,8 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
           ),
         ],
       );
-    } else if (type == 'outgoing' && requestId != null) {
-      final rId = requestId;
+    } else if (effectiveType == 'outgoing' && effectiveRequestId != null) {
+      final rId = effectiveRequestId;
       return TextButton(
         onPressed: isAnyLoading ? null : () async {
           setState(() => _loadingStates[rId] = true);

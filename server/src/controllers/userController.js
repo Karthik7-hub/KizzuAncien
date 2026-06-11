@@ -148,7 +148,44 @@ exports.searchUsers = async (req, res, next) => {
     const users = await User.find({ ...keyword, _id: { $ne: req.user._id } })
       .select('name username profileImageUrl gender avatarType streak')
       .limit(10);
-    res.json(users);
+
+    // Fetch relationships for these users to determine status
+    const userIds = users.map(u => u._id);
+    const relationships = await Friend.find({
+      $or: [
+        { requester: req.user._id, recipient: { $in: userIds } },
+        { requester: { $in: userIds }, recipient: req.user._id }
+      ]
+    });
+
+    const results = users.map(user => {
+      const rel = relationships.find(r =>
+        (r.requester.toString() === req.user._id.toString() && r.recipient.toString() === user._id.toString()) ||
+        (r.requester.toString() === user._id.toString() && r.recipient.toString() === req.user._id.toString())
+      );
+
+      let relationshipStatus = 'NOT_FRIENDS';
+      let requestId = null;
+
+      if (rel) {
+        if (rel.status === 'accepted') {
+          relationshipStatus = 'FRIENDS';
+        } else if (rel.status === 'pending') {
+          relationshipStatus = rel.requester.toString() === req.user._id.toString()
+            ? 'PENDING_SENT'
+            : 'PENDING_RECEIVED';
+          requestId = rel._id;
+        }
+      }
+
+      return {
+        ...user.toObject(),
+        relationshipStatus,
+        requestId
+      };
+    });
+
+    res.json(results);
   } catch (error) {
     next(error);
   }

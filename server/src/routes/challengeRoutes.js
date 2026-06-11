@@ -10,8 +10,11 @@ router.post('/', protect, apiLimiter, createChallenge);
 router.get('/', protect, getChallenges);
 router.get('/shared/:friendId', protect, getSharedChallenges);
 router.get('/:challengeId/submission', protect, getSubmissionByChallenge);
-router.post('/submit', protect, apiLimiter, upload.single('file'), submitProof);
+router.get('/:challengeId/activities', protect, getChallengeActivities);
+router.post('/submit', protect, apiLimiter, submitProof);
+router.post('/edit', protect, apiLimiter, editSubmission);
 router.post('/review', protect, reviewSubmission);
+router.post('/upload', protect, upload.single('file'), uploadAttachment);
 
 // Discussion routes
 router.get('/:challengeId/messages', protect, getMessagesByChallenge);

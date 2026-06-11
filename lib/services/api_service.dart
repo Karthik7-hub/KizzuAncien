@@ -99,10 +99,21 @@ class ApiService {
               return handler.resolve(cloneReq);
             } catch (err) {
               _isRefreshing = false;
-              await storage.deleteAll();
-              for (var callback in _refreshQueue) {
-                callback(null);
+              
+              // Only clear tokens if the refresh token is explicitly rejected by the server
+              if (err is DioException && 
+                  (err.response?.statusCode == 401 || err.response?.statusCode == 403)) {
+                await storage.deleteAll();
+                for (var callback in _refreshQueue) {
+                  callback(null);
+                }
+              } else {
+                // Network error or server down, don't logout, just fail the queued requests
+                for (var callback in _refreshQueue) {
+                  callback(null);
+                }
               }
+
               _refreshQueue.clear();
               return handler.next(e);
             }

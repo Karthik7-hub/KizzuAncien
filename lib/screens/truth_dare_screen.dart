@@ -166,31 +166,34 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
               isLoading: isLoading,
               onPressed: () async {
                 if (_inputController.text.isEmpty) return;
-                bool success;
-                if (_isTruthMode) {
-                  success = await context.read<TruthDareProvider>().sendTruth(
-                    context,
-                    widget.recipient.id,
-                    _inputController.text,
-                  );
-                } else {
-                  success = await context.read<TruthDareProvider>().sendDare(
-                    context,
-                    widget.recipient.id,
-                    _inputController.text,
-                  );
-                }
-                
-                if (!context.mounted) return;
-                if (success) {
-                  Navigator.of(context).pop();
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Insufficient points or error occurred.'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
+                try {
+                  if (_isTruthMode) {
+                    await context.read<TruthDareProvider>().sendTruth(
+                      context,
+                      widget.recipient.id,
+                      _inputController.text,
+                    );
+                  } else {
+                    await context.read<TruthDareProvider>().sendDare(
+                      context,
+                      widget.recipient.id,
+                      _inputController.text,
+                    );
+                  }
+                  if (mounted) {
+                    Navigator.of(context).pop();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        backgroundColor: Colors.redAccent,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                    );
+                  }
                 }
               },
               backgroundColor: AppTheme.white,

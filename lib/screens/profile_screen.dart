@@ -53,6 +53,18 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
 
     return Scaffold(
       backgroundColor: AppTheme.black,
+      appBar: AppBar(
+        backgroundColor: AppTheme.black,
+        elevation: 0,
+        title: const Text('Profile', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        actions: [
+          IconButton(
+            icon: const Icon(LucideIcons.settings, size: 20, color: AppTheme.zinc500),
+            onPressed: () => _showSettingsMenu(context, authProvider),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _onRefresh,
         color: AppTheme.white,

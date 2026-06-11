@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/widgets/custom_button.dart';
+import 'package:kizzu_ancien/widgets/note_widgets.dart';
 import '../widgets/avatar_widget.dart';
 import '../utils/logger.dart';
 
@@ -18,7 +18,7 @@ class ReviewScreen extends StatefulWidget {
 }
 
 class _ReviewScreenState extends State<ReviewScreen> {
-  Map<String, dynamic>? _submission;
+  ChallengeSubmission? _submission;
   bool _isDataLoading = true;
   bool _isVerifying = false;
   bool _isDeclining = false;
@@ -64,7 +64,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
-          'Verification',
+          'Review Verification',
           style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
@@ -101,6 +101,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
       );
     }
 
+    final latestVersion = _submission?.versions.last;
+
     return Column(
       children: [
         Expanded(
@@ -111,14 +113,20 @@ class _ReviewScreenState extends State<ReviewScreen> {
               children: [
                 _buildHeaderCard(),
                 const SizedBox(height: 32),
-                const Padding(
-                  padding: EdgeInsets.only(left: 8, bottom: 12),
-                  child: Text(
-                    'EVIDENCE PROVIDED',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
+                if (latestVersion != null) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(left: 8, bottom: 16),
+                    child: Text(
+                      'SUBMISSION VERSION ${latestVersion.versionNumber}',
+                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5),
+                    ),
                   ),
-                ),
-                _buildEvidenceSection(),
+                  ...latestVersion.notes.map((note) => Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: _buildNoteRenderer(note),
+                  )),
+                ] else
+                   const Center(child: Text('No notes provided.', style: TextStyle(color: AppTheme.zinc600))),
                 const SizedBox(height: 40),
               ],
             ),
@@ -127,6 +135,16 @@ class _ReviewScreenState extends State<ReviewScreen> {
         _buildActionFooter(),
       ],
     );
+  }
+
+  Widget _buildNoteRenderer(Note note) {
+    switch (note.type) {
+      case 'explanation': return ExplanationNoteWidget(note: note);
+      case 'code': return CodeNoteWidget(note: note);
+      case 'image': return ImageNoteWidget(note: note);
+      case 'link': return LinkNoteWidget(note: note);
+      default: return const SizedBox.shrink();
+    }
   }
 
   Widget _buildHeaderCard() {
@@ -162,69 +180,12 @@ class _ReviewScreenState extends State<ReviewScreen> {
     );
   }
 
-  Widget _buildEvidenceSection() {
-    final proofUrl = _submission?['proofUrl'] as String?;
-    final proofText = _submission?['proofText'] as String?;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: AppTheme.zinc900.withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: AppTheme.zinc800),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (proofUrl != null) ...[
-                GestureDetector(
-                  onTap: () => _showFullScreenImage(context, proofUrl),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: AppTheme.zinc900),
-                      color: AppTheme.zinc950,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: CachedNetworkImage(
-                        imageUrl: proofUrl,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
-                          height: 200,
-                          color: AppTheme.zinc950,
-                          child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          height: 100,
-                          color: AppTheme.zinc950,
-                          child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                if (proofText != null && proofText.isNotEmpty) const SizedBox(height: 20),
-              ],
-              if (proofText != null && proofText.isNotEmpty)
-                Text(
-                  proofText,
-                  style: const TextStyle(color: AppTheme.white, fontSize: 16, height: 1.6),
-                ),
-              if (proofUrl == null && (proofText == null || proofText.isEmpty))
-                const Text('No evidence provided.', style: TextStyle(color: AppTheme.zinc600, fontStyle: FontStyle.italic)),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _buildActionFooter() {
+    final latestVersion = _submission?.versions.last;
+    if (latestVersion == null || latestVersion.status != 'pending') {
+      return const SizedBox.shrink();
+    }
+
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
       decoration: const BoxDecoration(
@@ -261,6 +222,9 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Future<void> _handleReview(String status) async {
+    final latestVersion = _submission?.versions.last;
+    if (latestVersion == null) return;
+
     setState(() {
       if (status == 'approved') {
         _isVerifying = true;
@@ -270,7 +234,11 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
 
     try {
-      final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, status);
+      final success = await context.read<ChallengeProvider>().reviewSubmission(
+        _submission!.id, 
+        status, 
+        latestVersion.versionNumber
+      );
       if (success && mounted) {
         Navigator.of(context).pop();
         return;
@@ -290,35 +258,5 @@ class _ReviewScreenState extends State<ReviewScreen> {
         });
       }
     }
-  }
-
-  void _showFullScreenImage(BuildContext context, String url) {
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Colors.black,
-        insetPadding: EdgeInsets.zero,
-        child: Stack(
-          children: [
-            Center(
-              child: CachedNetworkImage(
-                imageUrl: url,
-                fit: BoxFit.contain,
-                width: double.infinity,
-                height: double.infinity,
-              ),
-            ),
-            Positioned(
-              top: 40,
-              right: 20,
-              child: IconButton(
-                icon: const Icon(LucideIcons.x, color: Colors.white, size: 30),
-                onPressed: () => Navigator.pop(context),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
