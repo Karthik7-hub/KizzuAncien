@@ -1,6 +1,6 @@
 class AppConstants {
   // Update this with the Web Client ID from Firebase Console > Authentication > Google > Web SDK configuration
-  static const String googleServerClientId = '890432799040-034h4cv0mk0qu605hiibu7t14tnphacr.apps.googleusercontent.com';
+  static const String googleServerClientId = '916502954681-6rbq7esb6llrbnuratf00acg0s1vfaav.apps.googleusercontent.com';
   
   // API URLs
   static const String productionBaseUrl = 'https://kizzu-ancien.vercel.app/api';

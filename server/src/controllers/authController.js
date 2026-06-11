@@ -42,7 +42,9 @@ exports.login = async (req, res, next) => {
       const { accessToken, refreshToken } = generateTokens(user._id);
       res.json({ user, accessToken, refreshToken });
     } else {
-      res.status(401).json({ message: 'Invalid email or password' });
+      res.status(401).json({
+        message: user ? 'Incorrect password' : 'User not found'
+      });
     }
   } catch (error) {
     next(error);
@@ -60,16 +62,16 @@ exports.googleLogin = async (req, res, next) => {
     // Verify Firebase ID Token
     let decodedToken;
     try {
-      if (admin.apps.length === 0) {
-        throw new Error('Firebase Admin not initialized. Check server logs.');
+      if (!admin.apps.length) {
+        throw new Error('Firebase Admin not initialized');
       }
       decodedToken = await admin.auth().verifyIdToken(idToken);
       if (decodedToken.email !== email) {
-        return res.status(401).json({ message: 'Email mismatch in token' });
+        return res.status(401).json({ message: `Email mismatch: Token is for ${decodedToken.email}, but you provided ${email}` });
       }
     } catch (err) {
       console.error('Google Login Token Error:', err.message);
-      return res.status(401).json({ message: `Authentication failed: ${err.message}` });
+      return res.status(401).json({ message: `Token verification failed: ${err.message}` });
     }
 
     let user = await User.findOne({ email });

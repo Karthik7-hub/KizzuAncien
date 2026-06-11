@@ -55,7 +55,9 @@ class AuthProvider extends ChangeNotifier {
       if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? 'Registration failed';
       } else if (e.response != null) {
-        message = 'Server Error: ${e.response?.statusCode}';
+        // Log the full response for debugging
+        AppLogger.error('Server Registration Error: ${e.response?.statusCode}', e.response?.data);
+        message = e.response?.data?.toString() ?? 'Server Error: ${e.response?.statusCode}';
       } else if (e.type == DioExceptionType.connectionTimeout) {
         message = 'Server timed out. Check your database connection.';
       }
@@ -93,7 +95,8 @@ class AuthProvider extends ChangeNotifier {
       if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? message;
       } else if (e.response != null) {
-        message = 'Server Error: ${e.response?.statusCode}';
+        AppLogger.error('Server Login Error: ${e.response?.statusCode}', e.response?.data);
+        message = e.response?.data?.toString() ?? 'Server Error: ${e.response?.statusCode}';
       }
       throw Exception(message);
     } catch (e) {
@@ -135,7 +138,8 @@ class AuthProvider extends ChangeNotifier {
       if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? message;
       } else if (e.response != null) {
-        message = 'Server Error: ${e.response?.statusCode}';
+        AppLogger.error('Server Google Login Error: ${e.response?.statusCode}', e.response?.data);
+        message = e.response?.data?.toString() ?? 'Server Error: ${e.response?.statusCode}';
       }
       throw Exception(message);
     } catch (e) {
