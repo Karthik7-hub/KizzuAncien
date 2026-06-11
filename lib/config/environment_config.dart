@@ -7,5 +7,8 @@ class EnvironmentConfig {
 
   static String get environmentName => isDev ? 'Development' : 'Production';
 
-  // Database configurations or other env-specific keys can be added here
+  // Helper to get descriptive status
+  static String get connectionStatus {
+    return 'Connected to $environmentName environment';
+  }
 }
