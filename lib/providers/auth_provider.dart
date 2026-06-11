@@ -7,6 +7,7 @@ import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 
 enum AuthStatus { authenticated, unauthenticated, offline }
 
@@ -95,8 +96,13 @@ class AuthProvider extends ChangeNotifier {
       if (e.response?.data is Map) {
         message = e.response?.data['message'] ?? message;
       } else if (e.response != null) {
-        AppLogger.error('Server Login Error: ${e.response?.statusCode}', e.response?.data);
-        message = e.response?.data?.toString() ?? 'Server Error: ${e.response?.statusCode}';
+        String responseData = e.response?.data?.toString() ?? '';
+        if (responseData.contains('Vercel authentication')) {
+          message = 'Dev Server is protected by Vercel. Please disable "Deployment Protection" in Vercel settings.';
+        } else {
+          message = 'Server Error: ${e.response?.statusCode}';
+        }
+        AppLogger.error('Server Login Error: ${e.response?.statusCode}', responseData);
       }
       throw Exception(message);
     } catch (e) {

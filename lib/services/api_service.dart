@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/constants.dart';
+import '../utils/logger.dart';
 
 class ApiService {
   static final ApiService _instance = ApiService._internal();
@@ -64,6 +65,7 @@ class ApiService {
           final refreshToken = await storage.read(key: 'refreshToken');
           
           if (refreshToken != null) {
+            AppLogger.info('Attempting token refresh...');
             try {
               // Use a separate Dio instance for token refresh to avoid interceptor loop
               final refreshDio = Dio(BaseOptions(baseUrl: AppConstants.apiBaseUrl));
@@ -78,6 +80,7 @@ class ApiService {
               await storage.write(key: 'accessToken', value: newAccessToken);
               await storage.write(key: 'refreshToken', value: newRefreshToken);
               
+              AppLogger.info('Token refresh successful');
               _isRefreshing = false;
               
               // Process queue
@@ -101,6 +104,7 @@ class ApiService {
               );
               return handler.resolve(cloneReq);
             } catch (err) {
+              AppLogger.error('Token refresh failed', err);
               _isRefreshing = false;
               
               // Clear tokens if the refresh token is rejected or user not found
