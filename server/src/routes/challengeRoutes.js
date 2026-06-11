@@ -1,5 +1,15 @@
 const express = require('express');
-const { createChallenge, getChallenges, submitProof, reviewSubmission, getSubmissionByChallenge, getSharedChallenges } = require('../controllers/challengeController');
+const {
+  createChallenge,
+  getChallenges,
+  submitProof,
+  editSubmission,
+  reviewSubmission,
+  getSubmissionByChallenge,
+  getSharedChallenges,
+  getChallengeActivities,
+  uploadAttachment
+} = require('../controllers/challengeController');
 const { getMessagesByChallenge, createMessage } = require('../controllers/messageController');
 const { protect } = require('../middleware/authMiddleware');
 const { apiLimiter } = require('../middleware/rateLimiter');
