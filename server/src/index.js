@@ -6,6 +6,7 @@ const rateLimit = require('express-rate-limit');
 const compression = require('compression');
 const morgan = require('morgan');
 const mongoose = require('mongoose');
+const connectDB = require('./config/db');
 require('./config/firebase');
 
 const authRoutes = require('./routes/authRoutes');
@@ -61,20 +62,6 @@ app.get('/', (req, res) => res.json({ status: 'KizzuAncien API' }));
 app.get('/health', (req, res) => res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() }));
 
 app.use(errorHandler);
-
-// Database connection for Serverless
-const connectDB = async () => {
-  if (mongoose.connection.readyState >= 1) return;
-
-  const mongoUri = process.env.DEV_MONGO_URI || process.env.MONGO_URI;
-
-  try {
-    await mongoose.connect(mongoUri);
-    console.log(`✅ MongoDB Connected to ${process.env.DEV_MONGO_URI ? 'Development' : 'Production'} database`);
-  } catch (err) {
-    console.error('❌ MongoDB Connection Error:', err.message);
-  }
-};
 
 // Start server for local dev or handle serverless
 if (process.env.NODE_ENV !== 'production') {
