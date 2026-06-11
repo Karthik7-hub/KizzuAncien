@@ -10,10 +10,10 @@ class AppConstants {
   );
 
   static String get apiBaseUrl {
-    const isDev = bool.fromEnvironment('IS_DEV', defaultValue: false);
+    const isDev = bool.fromEnvironment('IS_DEV', defaultValue: true);
     return isDev ? developmentBaseUrl : productionBaseUrl;
   }
 
   // Environment Flags
-  static bool get isDevMode => bool.fromEnvironment('IS_DEV', defaultValue: false);
+  static bool get isDevMode => bool.fromEnvironment('IS_DEV', defaultValue: true);
 }
