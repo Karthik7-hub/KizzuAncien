@@ -22,6 +22,7 @@ class SubmitProofScreen extends StatefulWidget {
 
 class _SubmitProofScreenState extends State<SubmitProofScreen> {
   final List<Note> _notes = [];
+  List<Note> _initialNotes = [];
   bool _isSubmitting = false;
 
   @override
@@ -30,8 +31,40 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
     if (widget.existingSubmission != null && widget.existingSubmission!.versions.isNotEmpty) {
       // Initialize with latest version's notes if editing
       final latestVersion = widget.existingSubmission!.versions.last;
-      _notes.addAll(latestVersion.notes);
+      _notes.addAll(latestVersion.notes.map((n) => Note(
+        id: n.id,
+        type: n.type,
+        title: n.title,
+        content: n.content,
+        metadata: n.metadata != null ? Map<String, String>.from(n.metadata!) : null,
+        version: n.version,
+        createdAt: n.createdAt,
+        updatedAt: n.updatedAt,
+      )));
+      // Deep copy for change detection
+      _initialNotes = List.from(_notes);
     }
+  }
+
+  bool _hasChanges() {
+    if (widget.existingSubmission == null) return _notes.isNotEmpty;
+    if (_notes.length != _initialNotes.length) return true;
+    
+    for (int i = 0; i < _notes.length; i++) {
+      final n1 = _notes[i];
+      final n2 = _initialNotes[i];
+      if (n1.id != n2.id || n1.content != n2.content || n1.title != n2.title || n1.type != n2.type) {
+        return true;
+      }
+      // Check metadata (specifically for code language)
+      if (n1.metadata?.length != n2.metadata?.length) return true;
+      if (n1.metadata != null && n2.metadata != null) {
+        for (var key in n1.metadata!.keys) {
+          if (n1.metadata![key] != n2.metadata![key]) return true;
+        }
+      }
+    }
+    return false;
   }
 
   void _addNote(String type) async {
@@ -254,6 +287,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
               : ReorderableListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
                   itemCount: _notes.length,
+                  buildDefaultDragHandles: false,
                   onReorder: (oldIndex, newIndex) {
                     setState(() {
                       if (oldIndex < newIndex) newIndex -= 1;
@@ -313,7 +347,13 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
               icon: const Icon(LucideIcons.trash2, size: 16, color: AppTheme.zinc500),
               onPressed: () => setState(() => _notes.removeAt(index)),
             ),
-            const Icon(LucideIcons.gripVertical, size: 18, color: AppTheme.zinc700),
+            ReorderableDragStartListener(
+              index: index,
+              child: const Padding(
+                padding: EdgeInsets.only(left: 8, right: 4),
+                child: Icon(LucideIcons.gripVertical, size: 18, color: AppTheme.zinc700),
+              ),
+            ),
           ],
         ),
       ),
@@ -359,7 +399,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
           CustomButton(
             text: widget.existingSubmission == null ? 'Submit Solution' : 'Update & Re-verify',
             isLoading: _isSubmitting,
-            onPressed: _notes.isEmpty || _isSubmitting ? null : _handleSubmit,
+            onPressed: !_hasChanges() || _isSubmitting ? null : _handleSubmit,
             backgroundColor: AppTheme.white,
             textColor: AppTheme.black,
           ),

@@ -365,11 +365,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       orElse: () => submission.versions.last,
     );
     
-    final List<Note> sortedNotes = List.from(selectedVersion.notes);
-    sortedNotes.sort((a, b) {
-      final order = {'explanation': 0, 'code': 1, 'image': 2, 'link': 3};
-      return (order[a.type] ?? 99).compareTo(order[b.type] ?? 99);
-    });
+    final List<Note> notes = selectedVersion.notes;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -379,10 +375,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
         ),
         const SizedBox(height: 24),
-        if (sortedNotes.isEmpty)
+        if (notes.isEmpty)
           const Text('No detailed notes provided for this version.', style: TextStyle(color: AppTheme.zinc800, fontSize: 13))
         else
-          ...sortedNotes.map((note) => Padding(
+          ...notes.map((note) => Padding(
             padding: const EdgeInsets.only(bottom: 24),
             child: _buildNoteRenderer(note),
           )),

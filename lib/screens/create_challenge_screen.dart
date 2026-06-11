@@ -5,9 +5,7 @@ import 'package:kizzu_ancien/models/user.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/widgets/custom_button.dart';
-import 'package:kizzu_ancien/widgets/custom_text_field.dart';
 import '../widgets/avatar_widget.dart';
-
 import '../providers/navigation_provider.dart';
 import '../providers/friend_provider.dart';
 
@@ -69,15 +67,15 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.black,
         elevation: 0,
-        leading: widget.recipient != null 
+        leading: Navigator.canPop(context) 
           ? IconButton(
               icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
               onPressed: () => Navigator.pop(context),
             )
           : null,
         title: const Text(
-          'New Challenge',
-          style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
+          'NEW CHALLENGE',
+          style: TextStyle(color: AppTheme.white, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 2),
         ),
         centerTitle: true,
         automaticallyImplyLeading: false,
@@ -86,163 +84,262 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildLabel('RECIPIENTS'),
+                  _buildSectionHeader('RECIPIENTS', LucideIcons.users),
+                  const SizedBox(height: 16),
                   _buildFriendSelection(),
-                  const SizedBox(height: 32),
-                  _buildLabel('CHALLENGE TITLE'),
-                  CustomTextField(controller: _titleController, hintText: 'e.g. Morning 5km Run'),
+                  const SizedBox(height: 40),
+                  
+                  _buildSectionHeader('CHALLENGE INFO', LucideIcons.edit3),
+                  const SizedBox(height: 16),
+                  _buildTextField(
+                    controller: _titleController, 
+                    hint: 'e.g. 100 Pushups Daily',
+                    label: 'TITLE',
+                  ),
                   const SizedBox(height: 20),
-                  _buildLabel('DETAILS'),
-                  CustomTextField(controller: _descController, hintText: 'Explain the rules...', maxLines: 4),
-                  const SizedBox(height: 20),
+                  _buildTextField(
+                    controller: _descController, 
+                    hint: 'Describe the rules or goals...',
+                    label: 'DESCRIPTION',
+                    maxLines: 4,
+                  ),
+                  const SizedBox(height: 40),
+                  
+                  _buildSectionHeader('CONFIGURATION', LucideIcons.settings),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('DEADLINE'),
-                            _buildDropdown(
-                              value: _deadline,
-                              items: const [
-                                DropdownMenuItem(value: 'today', child: Text('Today')),
-                                DropdownMenuItem(value: 'tomorrow', child: Text('Tomorrow')),
-                              ],
-                              onChanged: (val) => setState(() => _deadline = val!),
-                            ),
-                          ],
+                        child: _buildConfigItem(
+                          label: 'DEADLINE',
+                          child: _buildDropdown(
+                            value: _deadline,
+                            items: const [
+                              DropdownMenuItem(value: 'today', child: Text('Today')),
+                              DropdownMenuItem(value: 'tomorrow', child: Text('Tomorrow')),
+                              DropdownMenuItem(value: '3days', child: Text('3 Days')),
+                              DropdownMenuItem(value: 'week', child: Text('1 Week')),
+                            ],
+                            onChanged: (val) => setState(() => _deadline = val!),
+                          ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildLabel('PROOF TYPE'),
-                            _buildDropdown(
-                              value: _proofType,
-                              items: const [
-                                DropdownMenuItem(value: 'any', child: Text('Any')),
-                                DropdownMenuItem(value: 'image', child: Text('Photo')),
-                                DropdownMenuItem(value: 'video', child: Text('Video')),
-                                DropdownMenuItem(value: 'text', child: Text('Text')),
-                              ],
-                              onChanged: (val) => setState(() => _proofType = val!),
-                            ),
-                          ],
+                        child: _buildConfigItem(
+                          label: 'PROOF TYPE',
+                          child: _buildDropdown(
+                            value: _proofType,
+                            items: const [
+                              DropdownMenuItem(value: 'any', child: Text('Any')),
+                              DropdownMenuItem(value: 'image', child: Text('Photo')),
+                              DropdownMenuItem(value: 'code', child: Text('Code')),
+                              DropdownMenuItem(value: 'link', child: Text('Link')),
+                            ],
+                            onChanged: (val) => setState(() => _proofType = val!),
+                          ),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 100),
                 ],
               ),
             ),
           ),
-          Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [AppTheme.black.withValues(alpha: 0), AppTheme.black],
-              ),
-            ),
-            child: CustomButton(
-              text: 'Launch Challenge',
-              isLoading: _isLaunching,
-              onPressed: () async {
-                if (_selectedFriends.isEmpty || _isLaunching || _titleController.text.isEmpty) return;
-                setState(() => _isLaunching = true);
-                
-                final challengeProvider = context.read<ChallengeProvider>();
-                final navProvider = context.read<NavigationProvider>();
-
-                bool allSuccess = true;
-                for (var friend in _selectedFriends) {
-                  final success = await challengeProvider.createChallenge({
-                    'recipientId': friend.id,
-                    'title': _titleController.text.trim(),
-                    'description': _descController.text.trim(),
-                    'deadline': _deadline == 'today' 
-                        ? DateTime.now().add(const Duration(hours: 12)).toIso8601String()
-                        : DateTime.now().add(const Duration(days: 1)).toIso8601String(),
-                    'proofType': _proofType,
-                  });
-                  if (!success) allSuccess = false;
-                }
-                
-                if (!context.mounted) return;
-                if (allSuccess) {
-                  if (widget.recipient != null) {
-                    Navigator.of(context).pop();
-                  } else {
-                    navProvider.setIndex(0);
-                    _titleController.clear();
-                    _descController.clear();
-                    _selectedFriends.clear();
-                  }
-                } else {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Some challenges failed to launch.'), backgroundColor: Colors.redAccent)
-                  );
-                }
-                setState(() => _isLaunching = false);
-              },
-              backgroundColor: AppTheme.white,
-              textColor: AppTheme.black,
-              icon: const Icon(LucideIcons.rocket, size: 20),
-            ),
-          ),
+          _buildBottomActions(),
         ],
       ),
     );
+  }
+
+  Widget _buildSectionHeader(String title, IconData icon) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: AppTheme.zinc600),
+        const SizedBox(width: 8),
+        Text(
+          title,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField({required TextEditingController controller, required String hint, required String label, int maxLines = 1}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.zinc950,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: AppTheme.zinc900),
+          ),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: const TextStyle(color: AppTheme.white, fontSize: 15),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: const TextStyle(color: AppTheme.zinc800, fontSize: 14),
+              contentPadding: const EdgeInsets.all(20),
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConfigItem({required String label, required Widget child}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+      ],
+    );
+  }
+
+  Widget _buildBottomActions() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
+      decoration: BoxDecoration(
+        color: AppTheme.black,
+        border: Border(top: BorderSide(color: AppTheme.zinc900)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, -10)),
+        ],
+      ),
+      child: CustomButton(
+        text: 'LAUNCH CHALLENGE',
+        isLoading: _isLaunching,
+        onPressed: _titleController.text.isEmpty || _selectedFriends.isEmpty ? null : _handleLaunch,
+        backgroundColor: AppTheme.white,
+        textColor: AppTheme.black,
+        icon: const Icon(LucideIcons.rocket, size: 18),
+      ),
+    );
+  }
+
+  void _handleLaunch() async {
+    if (_selectedFriends.isEmpty || _isLaunching || _titleController.text.isEmpty) return;
+    setState(() => _isLaunching = true);
+    
+    final challengeProvider = context.read<ChallengeProvider>();
+    final navProvider = context.read<NavigationProvider>();
+
+    bool allSuccess = true;
+    for (var friend in _selectedFriends) {
+      final success = await challengeProvider.createChallenge({
+        'recipientId': friend.id,
+        'title': _titleController.text.trim(),
+        'description': _descController.text.trim(),
+        'deadline': _calculateDeadline(),
+        'proofType': _proofType,
+      });
+      if (!success) allSuccess = false;
+    }
+    
+    if (!mounted) return;
+    if (allSuccess) {
+      if (mounted) {
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+        } else {
+          navProvider.setIndex(0);
+          _titleController.clear();
+          _descController.clear();
+          _selectedFriends.clear();
+        }
+      }
+    } else {
+       ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to launch some challenges.'), backgroundColor: Colors.redAccent)
+      );
+    }
+    setState(() => _isLaunching = false);
+  }
+
+  String _calculateDeadline() {
+    DateTime now = DateTime.now();
+    switch (_deadline) {
+      case 'tomorrow': return now.add(const Duration(days: 1)).toIso8601String();
+      case '3days': return now.add(const Duration(days: 3)).toIso8601String();
+      case 'week': return now.add(const Duration(days: 7)).toIso8601String();
+      default: return now.add(const Duration(hours: 12)).toIso8601String();
+    }
   }
 
   Widget _buildFriendSelection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (_selectedFriends.isNotEmpty) ...[
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: _selectedFriends.map((f) => Chip(
-              backgroundColor: AppTheme.zinc900,
-              side: const BorderSide(color: AppTheme.zinc800),
-              label: Text(f.name, style: const TextStyle(color: AppTheme.white, fontSize: 12)),
-              deleteIcon: const Icon(LucideIcons.x, size: 14, color: AppTheme.zinc500),
-              onDeleted: () => setState(() => _selectedFriends.remove(f)),
-              avatar: AvatarWidget(user: f, size: 20, showBorder: false),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-            )).toList(),
-          ),
-          const SizedBox(height: 12),
-        ],
         GestureDetector(
           onTap: () => _showFriendPicker(),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
             decoration: BoxDecoration(
               color: AppTheme.zinc950,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(20),
               border: Border.all(color: AppTheme.zinc900),
             ),
             child: Row(
               children: [
-                const Icon(LucideIcons.search, size: 18, color: AppTheme.zinc700),
-                const SizedBox(width: 12),
+                const Icon(LucideIcons.plusCircle, size: 20, color: AppTheme.white),
+                const SizedBox(width: 16),
                 Text(
-                  _selectedFriends.isEmpty ? 'Select friends...' : 'Add more friends...',
-                  style: const TextStyle(color: AppTheme.zinc700, fontSize: 14),
+                  _selectedFriends.isEmpty ? 'Tap to select recipients' : '${_selectedFriends.length} friends selected',
+                  style: TextStyle(
+                    color: _selectedFriends.isEmpty ? AppTheme.zinc700 : AppTheme.white, 
+                    fontSize: 14,
+                    fontWeight: _selectedFriends.isEmpty ? FontWeight.normal : FontWeight.bold,
+                  ),
                 ),
+                const Spacer(),
+                const Icon(LucideIcons.chevronRight, size: 16, color: AppTheme.zinc800),
               ],
             ),
           ),
         ),
+        if (_selectedFriends.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 44,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedFriends.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 12),
+              itemBuilder: (context, index) {
+                final f = _selectedFriends[index];
+                return Container(
+                  padding: const EdgeInsets.only(left: 4, right: 12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.zinc900,
+                    borderRadius: BorderRadius.circular(22),
+                    border: Border.all(color: AppTheme.zinc800),
+                  ),
+                  child: Row(
+                    children: [
+                      AvatarWidget(user: f, size: 36, showBorder: false),
+                      const SizedBox(width: 8),
+                      Text(f.name.split(' ')[0], style: const TextStyle(color: AppTheme.white, fontSize: 12, fontWeight: FontWeight.bold)),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () => setState(() => _selectedFriends.removeAt(index)),
+                        child: const Icon(LucideIcons.x, size: 14, color: AppTheme.zinc600),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -254,94 +351,126 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
       backgroundColor: AppTheme.zinc950,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.7,
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Select Friends', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white)),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _friendSearchController,
-                onChanged: (val) {
-                  _onSearchFriends(val);
-                  setModalState(() {});
-                },
-                style: const TextStyle(color: AppTheme.white),
-                decoration: InputDecoration(
-                  hintText: 'Search by name...',
-                  prefixIcon: const Icon(LucideIcons.search, size: 18),
-                  fillColor: AppTheme.zinc900,
+        builder: (context, setModalState) => DraggableScrollableSheet(
+          initialChildSize: 0.7,
+          maxChildSize: 0.9,
+          minChildSize: 0.5,
+          expand: false,
+          builder: (_, scrollController) => Container(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('SELECT FRIENDS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5)),
+                    IconButton(
+                      icon: const Icon(LucideIcons.x, color: AppTheme.zinc700, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 20),
-              Expanded(
-                child: ListView.builder(
-                  itemCount: _filteredFriends.length,
-                  itemBuilder: (context, index) {
-                    final friend = _filteredFriends[index];
-                    final isSelected = _selectedFriends.any((f) => f.id == friend.id);
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: AvatarWidget(user: friend, size: 40, showBorder: false),
-                      title: Text(friend.name, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.w600)),
-                      subtitle: Text('@${friend.username}', style: const TextStyle(color: AppTheme.zinc600, fontSize: 12)),
-                      trailing: Container(
-                        width: 24,
-                        height: 24,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: isSelected ? AppTheme.white : Colors.transparent,
-                          border: Border.all(color: isSelected ? AppTheme.white : AppTheme.zinc800),
-                        ),
-                        child: isSelected ? const Icon(LucideIcons.check, size: 16, color: AppTheme.black) : null,
-                      ),
-                      onTap: () {
-                        setState(() {
-                          if (isSelected) {
-                            _selectedFriends.removeWhere((f) => f.id == friend.id);
-                          } else {
-                            _selectedFriends.add(friend);
-                          }
-                        });
-                        setModalState(() {});
-                      },
-                    );
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _friendSearchController,
+                  onChanged: (val) {
+                    _onSearchFriends(val);
+                    setModalState(() {});
                   },
+                  style: const TextStyle(color: AppTheme.white),
+                  decoration: InputDecoration(
+                    hintText: 'Search by name...',
+                    hintStyle: const TextStyle(color: AppTheme.zinc800),
+                    prefixIcon: const Icon(LucideIcons.search, size: 18, color: AppTheme.zinc700),
+                    filled: true,
+                    fillColor: AppTheme.zinc900,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              CustomButton(
-                text: 'Done',
-                onPressed: () => Navigator.pop(context),
-                backgroundColor: AppTheme.white,
-                textColor: AppTheme.black,
-              ),
-            ],
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: _filteredFriends.length,
+                    itemBuilder: (context, index) {
+                      final friend = _filteredFriends[index];
+                      final isSelected = _selectedFriends.any((f) => f.id == friend.id);
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: InkWell(
+                          onTap: () {
+                            setState(() {
+                              if (isSelected) {
+                                _selectedFriends.removeWhere((f) => f.id == friend.id);
+                              } else {
+                                _selectedFriends.add(friend);
+                              }
+                            });
+                            setModalState(() {});
+                          },
+                          borderRadius: BorderRadius.circular(16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isSelected ? AppTheme.zinc900 : Colors.transparent,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Row(
+                              children: [
+                                AvatarWidget(user: friend, size: 40, showBorder: false),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(friend.name, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                                      Text('@${friend.username}', style: const TextStyle(color: AppTheme.zinc700, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  width: 20,
+                                  height: 20,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isSelected ? AppTheme.white : Colors.transparent,
+                                    border: Border.all(color: isSelected ? AppTheme.white : AppTheme.zinc800),
+                                  ),
+                                  child: isSelected ? const Icon(LucideIcons.check, size: 14, color: AppTheme.black) : null,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: CustomButton(
+                    text: 'DONE',
+                    onPressed: () => Navigator.pop(context),
+                    backgroundColor: AppTheme.white,
+                    textColor: AppTheme.black,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 8.0, bottom: 8.0),
-      child: Text(
-        text,
-        style: const TextStyle(color: AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.2),
-      ),
-    );
-  }
-
   Widget _buildDropdown({required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
       decoration: BoxDecoration(
-        color: AppTheme.zinc900,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppTheme.zinc800.withValues(alpha: 0.5)),
+        color: AppTheme.zinc950,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AppTheme.zinc900),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -351,49 +480,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
           dropdownColor: AppTheme.zinc900,
           isExpanded: true,
           icon: const Icon(LucideIcons.chevronDown, size: 16, color: AppTheme.zinc500),
-          style: const TextStyle(color: AppTheme.white, fontSize: 15, fontWeight: FontWeight.w500),
-        ),
-      ),
-    );
-  }
-
-  Future<User?> _showRecipientPicker(BuildContext context) async {
-    final friendProvider = context.read<FriendProvider>();
-    if (friendProvider.friends.isEmpty) {
-      await friendProvider.fetchFriends();
-    }
-
-    return await showModalBottomSheet<User>(
-      context: context,
-      backgroundColor: AppTheme.zinc950,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
-      builder: (context) => Container(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Challenge a friend', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.white)),
-            const SizedBox(height: 16),
-            if (friendProvider.friends.isEmpty)
-              const Center(child: Text('No friends found. Add some first!', style: TextStyle(color: AppTheme.zinc600)))
-            else
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: friendProvider.friends.length,
-                  itemBuilder: (context, index) {
-                    final friend = friendProvider.friends[index];
-                    return ListTile(
-                      leading: AvatarWidget(user: friend, size: 32, showBorder: false),
-                      title: Text(friend.name, style: const TextStyle(color: AppTheme.white)),
-                      onTap: () => Navigator.pop(context, friend),
-                    );
-                  },
-                ),
-              ),
-            const SizedBox(height: 20),
-          ],
+          style: const TextStyle(color: AppTheme.white, fontSize: 13, fontWeight: FontWeight.bold),
         ),
       ),
     );
