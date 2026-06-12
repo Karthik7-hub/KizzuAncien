@@ -41,18 +41,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _initializeApp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    // We start checkAuth and wait for a maximum of 5 seconds
-    final checkAuthFuture = authProvider.checkAuth();
-    
-    // Ensure the splash is visible for at least 1 second for a smooth transition
-    final minDisplayTime = Future.delayed(const Duration(milliseconds: 1200));
-
-    final results = await Future.wait([
-      checkAuthFuture.catchError((e) => AuthStatus.offline),
-      minDisplayTime,
-    ]);
-
-    AuthStatus authStatus = results[0] as AuthStatus;
+    // 1. Auth check is the only thing we wait for on Splash
+    AuthStatus authStatus = await authProvider.checkAuth().catchError((e) => AuthStatus.offline);
     
     // Fallback: Try silent sign-in if our tokens are invalid
     if (authStatus == AuthStatus.unauthenticated) {
@@ -61,6 +51,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         authStatus = AuthStatus.authenticated;
       }
     }
+
+    // 2. Minimum display time for visual stability (Reduced from 1000ms)
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (authStatus == AuthStatus.authenticated) {
       NotificationService.setupFcmToken();
@@ -71,15 +64,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (context) => OfflineScreen(
-              onRetry: () async {
-                final provider = Provider.of<AuthProvider>(context, listen: false);
-                final status = await provider.checkAuth();
-                if (status != AuthStatus.offline && context.mounted) {
-                  Navigator.of(context).pushReplacement(
-                    MaterialPageRoute(builder: (_) => status == AuthStatus.authenticated ? const MainScreen() : const AuthScreen()),
-                  );
-                }
-              },
+              onRetry: () => _initializeApp(),
             ),
           ),
         );
@@ -107,9 +92,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
-    // We want the splash to render IMMEDIATELY.
-    // The background should be static and match native splash.
-    // Only the internal components should animate if needed.
     return Scaffold(
       backgroundColor: AppTheme.black,
       body: Center(
@@ -123,7 +105,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                 height: 100,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
-                  // Subtle shadow that appears with the icon
                   boxShadow: [
                     BoxShadow(
                       color: AppTheme.white.withValues(alpha: 0.1),

@@ -13,7 +13,6 @@ class NotificationProvider extends ChangeNotifier {
 
   Future<void> fetchNotifications() async {
     _isLoading = true;
-    notifyListeners();
     try {
       final response = await _apiService.dio.get('/notifications');
       _notifications = (response.data as List).map((n) => NotificationModel.fromJson(n)).toList();

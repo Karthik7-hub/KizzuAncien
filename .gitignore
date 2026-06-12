@@ -41,6 +41,7 @@
 **/.pub-cache/
 **/.pub/
 **/build/
+releases/
 
 # Build Outputs
 downloads/
@@ -48,6 +49,8 @@ downloads/
 # Node/Backend
 **/node_modules/
 **/server/.env
+**/server/backups/
+**/server/migration_report_*.json
 **/server/npm-debug.log
 **/server/yarn-debug.log
 **/server/yarn-error.log

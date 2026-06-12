@@ -229,6 +229,7 @@ class _AuthScreenState extends State<AuthScreen> {
               Center(
                 child: TextButton(
                   onPressed: _isAnyLoading ? null : () {
+                    FocusScope.of(context).unfocus();
                     Navigator.of(context).push(
                       MaterialPageRoute(builder: (context) => const SignUpScreen()),
                     );

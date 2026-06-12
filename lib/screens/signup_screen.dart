@@ -68,7 +68,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop();
+          },
         ),
       ),
       body: SafeArea(
@@ -141,25 +144,28 @@ class _SignUpScreenState extends State<SignUpScreen> {
               ),
               const SizedBox(height: 32),
               Center(
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: RichText(
-                    text: const TextSpan(
-                      text: "Already a member? ",
-                      style: TextStyle(color: AppTheme.zinc600, fontSize: 14),
-                      children: [
-                        TextSpan(
-                          text: 'Log in',
-                          style: TextStyle(
-                            color: AppTheme.white,
-                            fontWeight: FontWeight.bold,
+                  child: GestureDetector(
+                    onTap: () {
+                      FocusScope.of(context).unfocus();
+                      Navigator.of(context).pop();
+                    },
+                    child: RichText(
+                      text: const TextSpan(
+                        text: "Already a member? ",
+                        style: TextStyle(color: AppTheme.zinc600, fontSize: 14),
+                        children: [
+                          TextSpan(
+                            text: 'Log in',
+                            style: TextStyle(
+                              color: AppTheme.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
               const SizedBox(height: 40),
             ],
           ),

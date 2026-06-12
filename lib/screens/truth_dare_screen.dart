@@ -32,7 +32,10 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            Navigator.pop(context);
+          },
         ),
         title: const Text(
           'Spend Points',
@@ -181,6 +184,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                     );
                   }
                   if (mounted) {
+                    FocusScope.of(context).unfocus();
                     Navigator.of(context).pop();
                   }
                 } catch (e) {

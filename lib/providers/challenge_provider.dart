@@ -14,6 +14,23 @@ class ChallengeProvider extends ChangeNotifier {
   List<Challenge> get challenges => _challenges;
   bool get isLoading => _isLoading;
 
+  int getCompletedTodayCount(String userId) {
+    final today = DateTime.now();
+    return _challenges.where((c) => 
+      c.recipient.id == userId && 
+      c.status == 'approved' && 
+      c.updatedAt.day == today.day &&
+      c.updatedAt.month == today.month &&
+      c.updatedAt.year == today.year
+    ).length;
+  }
+
+  List<Challenge> getRecentFriendActivity(String userId) {
+    final activity = _challenges.where((c) => c.recipient.id != userId && c.status != 'pending').toList();
+    activity.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+    return activity.take(5).toList();
+  }
+
   Future<void> fetchChallenges() async {
     _isLoading = true;
     notifyListeners();

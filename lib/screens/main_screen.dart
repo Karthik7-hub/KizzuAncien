@@ -24,7 +24,6 @@ class MainScreen extends StatefulWidget {
 }
 
 class _MainScreenState extends State<MainScreen> {
-  late PageController _pageController;
   late NavigationProvider _navigationProvider;
 
   final List<Widget> _screens = const [
@@ -39,10 +38,7 @@ class _MainScreenState extends State<MainScreen> {
   void initState() {
     super.initState();
     _navigationProvider = context.read<NavigationProvider>();
-    _pageController = PageController(initialPage: _navigationProvider.currentIndex);
-    _navigationProvider.addListener(_handleNavigationChange);
     
-    // Request notification permissions on first load of main screen
     WidgetsBinding.instance.addPostFrameCallback((_) {
       NotificationService.requestPermissions();
     });
@@ -50,47 +46,35 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   void dispose() {
-    _navigationProvider.removeListener(_handleNavigationChange);
-    _pageController.dispose();
     super.dispose();
-  }
-
-  void _handleNavigationChange() {
-    if (_pageController.hasClients) {
-      final targetPage = _navigationProvider.currentIndex;
-      if (_pageController.page?.round() != targetPage) {
-        _pageController.animateToPage(
-          targetPage,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOutCubic,
-        );
-      }
-    }
   }
 
   void _onTabTapped(int index) {
     if (_navigationProvider.currentIndex == index) return;
+    
+    // Clear global focus and dismiss keyboard immediately before navigation
+    FocusManager.instance.primaryFocus?.unfocus();
+
     _navigationProvider.setIndex(index);
   }
 
   @override
   Widget build(BuildContext context) {
-    final navigationProvider = context.watch<NavigationProvider>();
-    final notificationProvider = context.watch<NotificationProvider>();
-    final authProvider = context.watch<AuthProvider>();
+    final currentIndex = context.select((NavigationProvider p) => p.currentIndex);
+    final authStatus = context.select((AuthProvider p) => p.status);
+    final hasUnread = context.select((NotificationProvider p) => 
+      p.notifications.any((n) => !n.read));
     
-    if (authProvider.status == AuthStatus.offline) {
-      return OfflineScreen(onRetry: () => authProvider.checkAuth());
+    if (authStatus == AuthStatus.offline) {
+      return OfflineScreen(onRetry: () => context.read<AuthProvider>().checkAuth());
     }
 
-    final hasUnread = notificationProvider.notifications.any((n) => !n.read);
-
     return PopScope(
-      canPop: navigationProvider.currentIndex == 0,
+      canPop: currentIndex == 0,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) return;
-        if (navigationProvider.currentIndex != 0) {
-          navigationProvider.setIndex(0);
+        if (currentIndex != 0) {
+          _navigationProvider.setIndex(0);
         }
       },
       child: Scaffold(
@@ -152,43 +136,29 @@ class _MainScreenState extends State<MainScreen> {
             const SizedBox(width: 8),
           ],
         ),
-        body: PageView(
-          controller: _pageController,
-          physics: const BouncingScrollPhysics(), // Enable smooth dragging
-          onPageChanged: (index) {
-            if (_navigationProvider.currentIndex != index) {
-              _navigationProvider.setIndex(index);
-            }
-          },
+        body: IndexedStack(
+          index: currentIndex,
           children: _screens,
         ),
         bottomNavigationBar: SafeArea(
           child: Container(
             height: 64,
             margin: const EdgeInsets.fromLTRB(40, 0, 40, 20),
-            child: ClipRRect(
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: AppTheme.zinc900,
               borderRadius: BorderRadius.circular(32),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.zinc900.withValues(alpha: 0.7),
-                    borderRadius: BorderRadius.circular(32),
-                    border: Border.all(color: AppTheme.white.withValues(alpha: 0.1), width: 1),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      _buildNavItem(0, LucideIcons.home),
-                      _buildNavItem(1, LucideIcons.layoutList),
-                      _buildNavItem(2, LucideIcons.plusCircle),
-                      _buildNavItem(3, LucideIcons.users),
-                      _buildNavItem(4, LucideIcons.user),
-                    ],
-                  ),
-                ),
-              ),
+              border: Border.all(color: AppTheme.white.withValues(alpha: 0.1), width: 1),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildNavItem(0, LucideIcons.home),
+                _buildNavItem(1, LucideIcons.layoutList),
+                _buildNavItem(2, LucideIcons.plusCircle),
+                _buildNavItem(3, LucideIcons.users),
+                _buildNavItem(4, LucideIcons.user),
+              ],
             ),
           ),
         ),
@@ -197,8 +167,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Widget _buildNavItem(int index, IconData icon) {
-    final navigationProvider = context.watch<NavigationProvider>();
-    final isSelected = navigationProvider.currentIndex == index;
+    final isSelected = context.select((NavigationProvider p) => p.currentIndex == index);
     final bool isCenter = index == 2;
 
     return GestureDetector(

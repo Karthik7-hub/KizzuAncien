@@ -17,6 +17,10 @@ const challengeSchema = new mongoose.Schema({
     default: 'pending'
   },
   coverImage: { type: String },
+  lastMessage: { type: String },
+  lastMessageAt: { type: Date },
+  lastMessageBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  unreadCount: { type: Map, of: Number, default: {} } // Map of userId to count
 }, { timestamps: true });
 
 challengeSchema.index({ creator: 1 });

@@ -29,12 +29,12 @@ class AvatarWidget extends StatelessWidget {
             : null,
       ),
       child: ClipOval(
-        child: _buildAvatarContent(),
+        child: _buildAvatarContent(context),
       ),
     );
   }
 
-  Widget _buildAvatarContent() {
+  Widget _buildAvatarContent(BuildContext context) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: user.profileImageUrl!,

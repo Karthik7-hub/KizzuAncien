@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -12,10 +11,9 @@ import 'package:kizzu_ancien/providers/notification_provider.dart';
 import 'package:kizzu_ancien/providers/friend_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/screens/notifications_screen.dart';
-import 'package:kizzu_ancien/screens/challenge_details_screen.dart';
-import 'package:kizzu_ancien/screens/friends_screen.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/challenge_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +35,8 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Future<void> _refreshData() async {
+    // Proactive Pre-fetching: Load all data for other tabs immediately
+    // to eliminate "first-visit lag" when switching tabs.
     await Future.wait([
       context.read<ChallengeProvider>().fetchChallenges(),
       context.read<NotificationProvider>().fetchNotifications(),
@@ -48,10 +48,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final user = context.watch<AuthProvider>().user;
-    final stats = context.watch<AuthProvider>().stats;
-    final challengeProvider = context.watch<ChallengeProvider>();
-    final notificationProvider = context.watch<NotificationProvider>();
+    
+    // Root Cause Optimization: Use select for granular rebuilds
+    final user = context.select((AuthProvider p) => p.user);
+    final stats = context.select((AuthProvider p) => p.stats);
+    
+    // Do NOT watch the entire provider; only select the specific lists needed
+    final activeChallenges = context.select((ChallengeProvider p) => p.challenges
+        .where((c) => c.recipient.id == user?.id && c.status == 'pending')
+        .toList());
+    
+    final completedToday = context.select((ChallengeProvider p) => user != null ? p.getCompletedTodayCount(user.id) : 0);
+    final displayActivity = context.select((ChallengeProvider p) => user != null ? p.getRecentFriendActivity(user.id) : []);
+    final recentNotifications = context.select((NotificationProvider p) => p.notifications.take(3).toList());
     
     if (user == null) {
       return const Scaffold(
@@ -59,27 +68,6 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
         body: Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
       );
     }
-
-    final today = DateTime.now();
-    final activeChallenges = challengeProvider.challenges
-        .where((c) => c.recipient.id == user.id && c.status == 'pending')
-        .toList();
-    
-    final completedToday = challengeProvider.challenges
-        .where((c) => c.recipient.id == user.id && 
-                      c.status == 'approved' && 
-                      c.updatedAt.day == today.day &&
-                      c.updatedAt.month == today.month &&
-                      c.updatedAt.year == today.year)
-        .length;
-
-    final recentFriendActivity = challengeProvider.challenges
-        .where((c) => c.recipient.id != user.id && c.status != 'pending')
-        .toList();
-    recentFriendActivity.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final displayActivity = recentFriendActivity.take(5).toList();
-
-    final recentNotifications = notificationProvider.notifications.take(3).toList();
 
     return Scaffold(
       backgroundColor: AppTheme.black,
@@ -94,23 +82,23 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildHeroCard(stats, completedToday, activeChallenges.length),
+                  RepaintBoundary(child: _buildHeroCard(stats, completedToday, activeChallenges.length)),
                   const SizedBox(height: 32),
                   
                   if (activeChallenges.isNotEmpty) ...[
-                    _buildSectionHeader('TODAY\'S CHALLENGES'),
+                    const _SectionHeader(title: 'TODAY\'S CHALLENGES'),
                     const SizedBox(height: 16),
-                    ...activeChallenges.map((c) => _buildTodayChallengeCard(c)),
+                    ...activeChallenges.map((c) => ChallengeCard(challenge: c, isCompact: true)),
                     const SizedBox(height: 32),
                   ],
 
-                  _buildSectionHeader('QUICK ACTIONS'),
+                  const _SectionHeader(title: 'QUICK ACTIONS'),
                   const SizedBox(height: 16),
                   _buildQuickActions(),
                   const SizedBox(height: 40),
 
                   if (displayActivity.isNotEmpty) ...[
-                    _buildSectionHeader('FRIEND ACTIVITY'),
+                    const _SectionHeader(title: 'FRIEND ACTIVITY'),
                     const SizedBox(height: 16),
                     ...displayActivity.map((c) => _buildActivityItem(c)),
                     const SizedBox(height: 40),
@@ -120,7 +108,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _buildSectionHeader('NOTIFICATIONS'),
+                        const _SectionHeader(title: 'NOTIFICATIONS'),
                         GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
                           child: const Text('View All', style: TextStyle(color: AppTheme.zinc600, fontSize: 12, fontWeight: FontWeight.bold)),
@@ -213,75 +201,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5),
-    );
-  }
-
-  Widget _buildTodayChallengeCard(Challenge challenge) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.zinc900.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.zinc800),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (challenge.coverImage != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: challenge.coverImage!,
-                  height: 140,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(challenge.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.white)),
-                      const SizedBox(height: 4),
-                      Text('Due ${DateFormat('h:mm a').format(challenge.deadline)}', style: const TextStyle(fontSize: 12, color: AppTheme.zinc500)),
-                    ],
-                  ),
-                ),
-                const Icon(LucideIcons.chevronRight, color: AppTheme.zinc700, size: 18),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildQuickActions() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        _buildActionBtn(LucideIcons.plus, 'Create', () => context.read<NavigationProvider>().setIndex(2)),
-        _buildActionBtn(LucideIcons.userPlus, 'Add Friend', () => context.read<NavigationProvider>().setIndex(3)),
-        _buildActionBtn(LucideIcons.layoutList, 'Challenges', () => context.read<NavigationProvider>().setIndex(1)),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final itemWidth = (constraints.maxWidth - 32) / 3;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildActionBtn(LucideIcons.plus, 'Create', () => context.read<NavigationProvider>().setIndex(2), itemWidth),
+            _buildActionBtn(LucideIcons.userPlus, 'Add Friend', () => context.read<NavigationProvider>().setIndex(3), itemWidth),
+            _buildActionBtn(LucideIcons.layoutList, 'Challenges', () => context.read<NavigationProvider>().setIndex(1), itemWidth),
+          ],
+        );
+      }
     );
   }
 
-  Widget _buildActionBtn(IconData icon, String label, VoidCallback onTap) {
+  Widget _buildActionBtn(IconData icon, String label, VoidCallback onTap, double width) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: (MediaQuery.of(context).size.width - 64) / 3,
+        width: width,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: AppTheme.zinc950,
@@ -350,6 +290,19 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
           ),
         ],
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  const _SectionHeader({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5),
     );
   }
 }

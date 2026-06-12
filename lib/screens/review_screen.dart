@@ -122,8 +122,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
                     ),
                   ),
                   ...latestVersion.notes.map((note) => Padding(
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: _buildNoteRenderer(note),
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: NotePreviewCard(note: note),
                   )),
                 ] else
                    const Center(child: Text('No notes provided.', style: TextStyle(color: AppTheme.zinc600))),
@@ -135,16 +135,6 @@ class _ReviewScreenState extends State<ReviewScreen> {
         _buildActionFooter(),
       ],
     );
-  }
-
-  Widget _buildNoteRenderer(Note note) {
-    switch (note.type) {
-      case 'explanation': return ExplanationNoteWidget(note: note);
-      case 'code': return CodeNoteWidget(note: note);
-      case 'image': return ImageNoteWidget(note: note);
-      case 'link': return LinkNoteWidget(note: note);
-      default: return const SizedBox.shrink();
-    }
   }
 
   Widget _buildHeaderCard() {
@@ -223,7 +213,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
 
   Future<void> _handleReview(String status) async {
     final latestVersion = _submission?.versions.last;
-    if (latestVersion == null) return;
+    if (latestVersion == null || _isVerifying || _isDeclining) return;
 
     setState(() {
       if (status == 'approved') {
@@ -234,7 +224,8 @@ class _ReviewScreenState extends State<ReviewScreen> {
     });
 
     try {
-      final success = await context.read<ChallengeProvider>().reviewSubmission(
+      final challengeProvider = context.read<ChallengeProvider>();
+      final success = await challengeProvider.reviewSubmission(
         _submission!.id, 
         status, 
         latestVersion.versionNumber

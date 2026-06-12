@@ -5,6 +5,7 @@ import 'package:kizzu_ancien/models/user.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/widgets/custom_button.dart';
+import 'package:kizzu_ancien/widgets/keyboard_spacer.dart';
 import '../widgets/avatar_widget.dart';
 import '../providers/navigation_provider.dart';
 import '../providers/friend_provider.dart';
@@ -17,7 +18,10 @@ class CreateChallengeScreen extends StatefulWidget {
   State<CreateChallengeScreen> createState() => _CreateChallengeScreenState();
 }
 
-class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
+class _CreateChallengeScreenState extends State<CreateChallengeScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _friendSearchController = TextEditingController();
@@ -35,6 +39,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
     if (widget.recipient != null) {
       _selectedFriends.add(widget.recipient!);
     }
+    
+    // Root Cause #1 Fix: Listen to input changes to refresh UI state
+    _titleController.addListener(() => setState(() {}));
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadFriends();
     });
@@ -62,15 +70,20 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: AppTheme.black,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: AppTheme.black,
         elevation: 0,
         leading: Navigator.canPop(context) 
           ? IconButton(
               icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                FocusScope.of(context).unfocus();
+                Navigator.pop(context);
+              },
             )
           : null,
         title: const Text(
@@ -152,6 +165,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
             ),
           ),
           _buildBottomActions(),
+          const IsolatedKeyboardSpacer(),
         ],
       ),
     );
@@ -208,12 +222,9 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   Widget _buildBottomActions() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppTheme.black,
         border: Border(top: BorderSide(color: AppTheme.zinc900)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.5), blurRadius: 20, offset: const Offset(0, -10)),
-        ],
       ),
       child: CustomButton(
         text: 'LAUNCH CHALLENGE',
@@ -227,42 +238,47 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
   }
 
   void _handleLaunch() async {
-    if (_selectedFriends.isEmpty || _isLaunching || _titleController.text.isEmpty) return;
+    if (_selectedFriends.isEmpty || _isLaunching || _titleController.text.trim().isEmpty) return;
     setState(() => _isLaunching = true);
     
     final challengeProvider = context.read<ChallengeProvider>();
     final navProvider = context.read<NavigationProvider>();
 
     bool allSuccess = true;
-    for (var friend in _selectedFriends) {
-      final success = await challengeProvider.createChallenge({
-        'recipientId': friend.id,
-        'title': _titleController.text.trim(),
-        'description': _descController.text.trim(),
-        'deadline': _calculateDeadline(),
-        'proofType': _proofType,
-      });
-      if (!success) allSuccess = false;
-    }
-    
-    if (!mounted) return;
-    if (allSuccess) {
-      if (mounted) {
-        if (Navigator.canPop(context)) {
-          Navigator.of(context).pop();
-        } else {
-          navProvider.setIndex(0);
-          _titleController.clear();
-          _descController.clear();
-          _selectedFriends.clear();
-        }
+    try {
+      for (var friend in _selectedFriends) {
+        final success = await challengeProvider.createChallenge({
+          'recipientId': friend.id,
+          'title': _titleController.text.trim(),
+          'description': _descController.text.trim(),
+          'deadline': _calculateDeadline(),
+          'proofType': _proofType,
+        });
+        if (!success) allSuccess = false;
       }
-    } else {
-       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to launch some challenges.'), backgroundColor: Colors.redAccent)
-      );
+      
+      if (!mounted) return;
+      if (allSuccess) {
+        if (mounted) {
+          if (Navigator.canPop(context)) {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop();
+          } else {
+            FocusScope.of(context).unfocus();
+            navProvider.setIndex(0);
+            _titleController.clear();
+            _descController.clear();
+            _selectedFriends.clear();
+          }
+        }
+      } else {
+         ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to launch some challenges.'), backgroundColor: Colors.redAccent)
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLaunching = false);
     }
-    setState(() => _isLaunching = false);
   }
 
   String _calculateDeadline() {
@@ -451,7 +467,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 24),
                   child: CustomButton(
                     text: 'DONE',
-                    onPressed: () => Navigator.pop(context),
+                    onPressed: () {
+                      // Root Cause #1 Fix: Sync parent state when closing picker
+                      Navigator.pop(context);
+                      setState(() {});
+                    },
                     backgroundColor: AppTheme.white,
                     textColor: AppTheme.black,
                   ),

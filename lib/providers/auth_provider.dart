@@ -16,6 +16,8 @@ class AuthProvider extends ChangeNotifier {
   Map<String, dynamic> _stats = {};
   bool _isLoading = false;
   AuthStatus _status = AuthStatus.unauthenticated;
+  DateTime? _lastAuthCheck;
+  Future<AuthStatus>? _pendingAuthCheck;
   
   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
@@ -242,6 +244,27 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<AuthStatus> checkAuth() async {
+    // Deduplicate concurrent calls
+    if (_pendingAuthCheck != null) {
+      return _pendingAuthCheck!;
+    }
+
+    // Cache the result for 30 seconds to prevent "storm" calls
+    if (_lastAuthCheck != null && 
+        DateTime.now().difference(_lastAuthCheck!) < const Duration(seconds: 30) &&
+        _user != null) {
+      return _status;
+    }
+
+    _pendingAuthCheck = _performAuthCheck();
+    try {
+      return await _pendingAuthCheck!;
+    } finally {
+      _pendingAuthCheck = null;
+    }
+  }
+
+  Future<AuthStatus> _performAuthCheck() async {
     final token = await _storage.read(key: 'accessToken');
     if (token == null) {
       _status = AuthStatus.unauthenticated;
@@ -249,6 +272,7 @@ class AuthProvider extends ChangeNotifier {
       return AuthStatus.unauthenticated;
     }
     
+    AppLogger.info('checkAuth called');
     try {
       // Use a longer timeout for startup check to support low internet
       final response = await _apiService.dio.get('/users/profile').timeout(
@@ -258,6 +282,7 @@ class AuthProvider extends ChangeNotifier {
       _user = User.fromJson(response.data['user']);
       _stats = response.data['stats'] ?? {};
       _status = AuthStatus.authenticated;
+      _lastAuthCheck = DateTime.now();
       notifyListeners();
       return AuthStatus.authenticated;
     } on DioException catch (e) {

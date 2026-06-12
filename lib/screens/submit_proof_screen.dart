@@ -7,8 +7,7 @@ import '../models/challenge.dart';
 import '../providers/challenge_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/note_widgets.dart';
-import '../utils/logger.dart';
+import '../widgets/keyboard_spacer.dart';
 
 class SubmitProofScreen extends StatefulWidget {
   final Challenge challenge;
@@ -75,29 +74,112 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
     } else if (type == 'link') {
       _showEditNoteDialog(Note(id: '', type: 'link', content: '', version: 1, createdAt: DateTime.now(), updatedAt: DateTime.now()));
     } else if (type == 'image') {
-      if (_isSubmitting) return;
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
-      if (image != null) {
-        if (mounted) {
-           setState(() => _isSubmitting = true);
-           try {
-             final url = await context.read<ChallengeProvider>().uploadAttachment(File(image.path));
-             if (url != null) {
-               setState(() {
-                 _notes.add(Note(
-                   id: DateTime.now().millisecondsSinceEpoch.toString(),
-                   type: 'image',
-                   content: url,
-                   version: 1,
-                   createdAt: DateTime.now(),
-                   updatedAt: DateTime.now(),
-                 ));
-               });
-             }
-           } finally {
-             if (mounted) setState(() => _isSubmitting = false);
-           }
+      _showImageSourceSelection();
+    }
+  }
+
+  void _showImageSourceSelection() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.zinc950,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(24, 12, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(width: 40, height: 4, decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 32),
+            const Text(
+              'SELECT IMAGE SOURCE',
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              children: [
+                Expanded(
+                  child: _buildHorizontalSourceOption(
+                    icon: LucideIcons.camera,
+                    label: 'Take Photo',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndUploadImage(ImageSource.camera);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildHorizontalSourceOption(
+                    icon: LucideIcons.image,
+                    label: 'Gallery',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndUploadImage(ImageSource.gallery);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHorizontalSourceOption({required IconData icon, required String label, required VoidCallback onTap}) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          color: AppTheme.zinc900,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.zinc800),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: AppTheme.white, size: 28),
+            const SizedBox(height: 12),
+            Text(
+              label,
+              style: const TextStyle(color: AppTheme.white, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndUploadImage(ImageSource source) async {
+    if (_isSubmitting) return;
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: source, imageQuality: 70);
+    
+    if (image != null) {
+      if (mounted) {
+        setState(() => _isSubmitting = true);
+        try {
+          final url = await context.read<ChallengeProvider>().uploadAttachment(File(image.path));
+          if (url != null) {
+            setState(() {
+              _notes.add(Note(
+                id: DateTime.now().millisecondsSinceEpoch.toString(),
+                type: 'image',
+                content: url,
+                version: 1,
+                createdAt: DateTime.now(),
+                updatedAt: DateTime.now(),
+              ));
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: ${e.toString()}'))
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isSubmitting = false);
         }
       }
     }
@@ -106,7 +188,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
   void _showEditNoteDialog(Note note, {int? index}) {
     final titleController = TextEditingController(text: note.title);
     final contentController = TextEditingController(text: note.content);
-    String selectedLanguage = note.metadata?['language'] ?? 'dart';
+    String selectedLanguage = note.metadata?['language'] ?? 'cpp';
 
     showModalBottomSheet(
       context: context,
@@ -115,150 +197,152 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
       useSafeArea: true,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Padding(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom,
-              left: 24,
-              right: 24,
-              top: 32,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${index == null ? "Add" : "Edit"} ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())}',
-                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white),
-                      ),
-                      IconButton(
-                        icon: const Icon(LucideIcons.x, color: AppTheme.zinc700, size: 20),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  TextField(
-                    controller: titleController,
-                    style: const TextStyle(color: AppTheme.white),
-                    decoration: InputDecoration(
-                      hintText: 'Title (Optional)',
-                      hintStyle: const TextStyle(color: AppTheme.zinc700),
-                      filled: true,
-                      fillColor: AppTheme.zinc900,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+        builder: (context, setModalState) {
+          final bool isContentEmpty = contentController.text.trim().isEmpty;
+
+          return GestureDetector(
+            onTap: () => FocusScope.of(context).unfocus(),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${index == null ? "Add" : "Edit"} ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())}',
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white),
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.x, color: AppTheme.zinc700, size: 20),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  if (note.type == 'code') ...[
-                    const Text('LANGUAGE', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    const SizedBox(height: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
-                      child: DropdownButton<String>(
-                        value: selectedLanguage,
-                        isExpanded: true,
-                        underline: const SizedBox(),
-                        dropdownColor: AppTheme.zinc900,
-                        items: ['dart', 'javascript', 'python', 'cpp', 'html', 'css', 'java'].map((lang) {
-                          return DropdownMenuItem(value: lang, child: Text(lang.toUpperCase(), style: const TextStyle(color: AppTheme.white, fontSize: 13)));
-                        }).toList(),
-                        onChanged: (val) => setModalState(() => selectedLanguage = val!),
+                    const SizedBox(height: 24),
+                    TextField(
+                      controller: titleController,
+                      style: const TextStyle(color: AppTheme.white),
+                      decoration: InputDecoration(
+                        hintText: 'Title (Optional)',
+                        hintStyle: const TextStyle(color: AppTheme.zinc700),
+                        filled: true,
+                        fillColor: AppTheme.zinc900,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
                       ),
                     ),
                     const SizedBox(height: 16),
-                  ],
-                  TextField(
-                    controller: contentController,
-                    maxLines: note.type == 'explanation' || note.type == 'code' ? 8 : 1,
-                    style: const TextStyle(color: AppTheme.white, fontFamily: 'monospace', fontSize: 14),
-                    decoration: InputDecoration(
-                      hintText: note.type == 'link' ? 'https://...' : 'Write something...',
-                      hintStyle: const TextStyle(color: AppTheme.zinc700),
-                      filled: true,
-                      fillColor: AppTheme.zinc900,
-                      contentPadding: const EdgeInsets.all(20),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                      alignLabelWithHint: true,
+                    if (note.type == 'code') ...[
+                      const Text('LANGUAGE', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
+                        child: DropdownButton<String>(
+                          value: selectedLanguage,
+                          isExpanded: true,
+                          underline: const SizedBox(),
+                          dropdownColor: AppTheme.zinc900,
+                          items: ['cpp', 'dart', 'javascript', 'python', 'html', 'css', 'java'].map((lang) {
+                            return DropdownMenuItem(value: lang, child: Text(lang.toUpperCase(), style: const TextStyle(color: AppTheme.white, fontSize: 13)));
+                          }).toList(),
+                          onChanged: (val) => setModalState(() => selectedLanguage = val!),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    TextField(
+                      controller: contentController,
+                      onChanged: (_) => setModalState(() {}),
+                      maxLines: note.type == 'explanation' || note.type == 'code' ? 8 : 1,
+                      style: const TextStyle(color: AppTheme.white, fontFamily: 'monospace', fontSize: 14),
+                      decoration: InputDecoration(
+                        hintText: note.type == 'link' ? 'https://...' : 'Write something...',
+                        hintStyle: const TextStyle(color: AppTheme.zinc700),
+                        filled: true,
+                        fillColor: AppTheme.zinc900,
+                        contentPadding: const EdgeInsets.all(20),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                        alignLabelWithHint: true,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 32),
-                  CustomButton(
-                    text: 'Save Note',
-                    onPressed: () {
-                      String content = contentController.text.trim();
-                      if (content.isEmpty) return;
+                    const SizedBox(height: 32),
+                    CustomButton(
+                      text: isContentEmpty ? 'Enter Required Fields' : 'Save Note',
+                      isLoading: false,
+                      onPressed: isContentEmpty ? null : () {
+                        String content = contentController.text.trim();
+                        if (note.type == 'link') {
+                          // More flexible URL validation
+                          if (!content.contains('.')) {
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               const SnackBar(content: Text('Please enter a valid link'), backgroundColor: Colors.redAccent)
+                             );
+                             return;
+                          }
+                          if (!content.startsWith('http')) {
+                            content = 'https://$content';
+                          }
+                        }
 
-                      if (note.type == 'link') {
-                        // More flexible URL validation
-                        if (!content.contains('.')) {
-                           ScaffoldMessenger.of(context).showSnackBar(
-                             const SnackBar(content: Text('Please enter a valid link'), backgroundColor: Colors.redAccent)
-                           );
-                           return;
-                        }
-                        if (!content.startsWith('http')) {
-                          content = 'https://$content';
-                        }
-                      }
-
-                      final updatedNote = Note(
-                        id: note.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : note.id,
-                        type: note.type,
-                        title: titleController.text.trim(),
-                        content: content,
-                        metadata: note.type == 'code' ? {'language': selectedLanguage} : null,
-                        version: note.version,
-                        createdAt: note.createdAt,
-                        updatedAt: DateTime.now(),
-                      );
-                      setState(() {
-                        if (index == null) {
-                          _notes.add(updatedNote);
-                        } else {
-                          _notes[index] = updatedNote;
-                        }
-                      });
-                      Navigator.pop(context);
-                    },
-                    backgroundColor: AppTheme.white,
-                    textColor: AppTheme.black,
-                  ),
-                  const SizedBox(height: 40),
-                ],
+                        final updatedNote = Note(
+                          id: note.id.isEmpty ? DateTime.now().millisecondsSinceEpoch.toString() : note.id,
+                          type: note.type,
+                          title: titleController.text.trim(),
+                          content: content,
+                          metadata: note.type == 'code' ? {'language': selectedLanguage} : null,
+                          version: note.version,
+                          createdAt: note.createdAt,
+                          updatedAt: DateTime.now(),
+                        );
+                        setState(() {
+                          if (index == null) {
+                            _notes.add(updatedNote);
+                          } else {
+                            _notes[index] = updatedNote;
+                          }
+                        });
+                        Navigator.pop(context);
+                      },
+                      backgroundColor: isContentEmpty ? AppTheme.zinc900 : AppTheme.white,
+                      textColor: isContentEmpty ? AppTheme.zinc600 : AppTheme.black,
+                    ),
+                    const IsolatedKeyboardSpacer(additionalPadding: 40),
+                  ],
+                ),
               ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
 
   void _handleSubmit() async {
-    if (_notes.isEmpty) return;
+    if (!_hasChanges() || _isSubmitting) return;
     setState(() => _isSubmitting = true);
     
-    bool success;
-    if (widget.existingSubmission == null) {
-      success = await context.read<ChallengeProvider>().submitNotes(widget.challenge.id, _notes);
-    } else {
-      success = await context.read<ChallengeProvider>().editSubmission(widget.existingSubmission!.id, _notes);
-    }
-
-    if (mounted) {
-      setState(() => _isSubmitting = false);
-      if (success) {
-        Navigator.pop(context);
+    try {
+      bool success;
+      if (widget.existingSubmission == null) {
+        success = await context.read<ChallengeProvider>().submitNotes(widget.challenge.id, _notes);
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit. Please try again.')));
+        success = await context.read<ChallengeProvider>().editSubmission(widget.existingSubmission!.id, _notes);
       }
+
+      if (mounted) {
+        if (success) {
+          Navigator.pop(context);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit. Please try again.')));
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -266,12 +350,16 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.black,
+      resizeToAvoidBottomInset: false,
       appBar: AppBar(
         backgroundColor: AppTheme.black,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            FocusScope.of(context).unfocus();
+            Navigator.pop(context);
+          },
         ),
         title: Text(
           widget.existingSubmission == null ? 'NEW SUBMISSION' : 'EDIT SUBMISSION',
@@ -297,21 +385,35 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
                   },
                   itemBuilder: (context, index) {
                     final note = _notes[index];
+                    
+                    // Smart naming logic for preview
+                    String? smartTitle = note.title;
+                    if (smartTitle == null || smartTitle.isEmpty) {
+                      int typeCount = 0;
+                      for (int i = 0; i <= index; i++) {
+                        if (_notes[i].type == note.type && (_notes[i].title == null || _notes[i].title!.isEmpty)) {
+                          typeCount++;
+                        }
+                      }
+                      smartTitle = 'Untitled ${note.type.replaceFirst(note.type[0], note.type[0].toUpperCase())} $typeCount';
+                    }
+
                     return Padding(
                       key: ValueKey(note.id),
                       padding: const EdgeInsets.only(bottom: 16),
-                      child: _buildNoteItem(note, index),
+                      child: _buildNoteItem(note, index, smartTitle),
                     );
                   },
                 ),
           ),
           _buildBottomActions(),
+          const IsolatedKeyboardSpacer(),
         ],
       ),
     );
   }
 
-  Widget _buildNoteItem(Note note, int index) {
+  Widget _buildNoteItem(Note note, int index, String smartTitle) {
     IconData icon = LucideIcons.fileText;
     if (note.type == 'code') icon = LucideIcons.code;
     if (note.type == 'image') icon = LucideIcons.image;
@@ -327,7 +429,7 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         leading: Icon(icon, color: AppTheme.white, size: 20),
         title: Text(
-          note.title?.isNotEmpty == true ? note.title! : 'Untitled ${note.type}',
+          smartTitle,
           style: const TextStyle(color: AppTheme.white, fontSize: 14, fontWeight: FontWeight.bold),
         ),
         subtitle: Text(
@@ -341,14 +443,15 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
           children: [
             IconButton(
               icon: const Icon(LucideIcons.edit3, size: 16, color: AppTheme.zinc500),
-              onPressed: () => _showEditNoteDialog(note, index: index),
+              onPressed: _isSubmitting ? null : () => _showEditNoteDialog(note, index: index),
             ),
             IconButton(
               icon: const Icon(LucideIcons.trash2, size: 16, color: AppTheme.zinc500),
-              onPressed: () => setState(() => _notes.removeAt(index)),
+              onPressed: _isSubmitting ? null : () => setState(() => _notes.removeAt(index)),
             ),
             ReorderableDragStartListener(
               index: index,
+              enabled: !_isSubmitting,
               child: const Padding(
                 padding: EdgeInsets.only(left: 8, right: 4),
                 child: Icon(LucideIcons.gripVertical, size: 18, color: AppTheme.zinc700),
@@ -361,13 +464,13 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
   }
 
   Widget _buildEmptyState() {
-    return Center(
+    return const Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(LucideIcons.stickyNote, size: 48, color: AppTheme.zinc900),
-          const SizedBox(height: 16),
-          const Text(
+          SizedBox(height: 16),
+          Text(
             'Your submission is empty.\nAdd notes to explain your solution.',
             textAlign: TextAlign.center,
             style: TextStyle(color: AppTheme.zinc700, fontSize: 14, height: 1.5),
@@ -380,7 +483,8 @@ class _SubmitProofScreenState extends State<SubmitProofScreen> {
   Widget _buildBottomActions() {
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      decoration: BoxDecoration(
+      decoration:
+      const BoxDecoration(
         color: AppTheme.black,
         border: Border(top: BorderSide(color: AppTheme.zinc900)),
       ),

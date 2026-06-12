@@ -15,7 +15,10 @@ class AllChallengesScreen extends StatefulWidget {
   State<AllChallengesScreen> createState() => _AllChallengesScreenState();
 }
 
-class _AllChallengesScreenState extends State<AllChallengesScreen> {
+class _AllChallengesScreenState extends State<AllChallengesScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   ChallengeCategory _selectedCategory = ChallengeCategory.all;
   String _searchQuery = '';
   String _sortBy = 'newest';
@@ -25,7 +28,11 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChallengeProvider>().fetchChallenges();
+      final provider = context.read<ChallengeProvider>();
+      // Only fetch if we don't have data, to avoid animation lag on first visit
+      if (provider.challenges.isEmpty) {
+        provider.fetchChallenges();
+      }
     });
   }
 
@@ -37,12 +44,16 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final challengeProvider = context.watch<ChallengeProvider>();
-    final user = context.watch<AuthProvider>().user;
+    super.build(context);
+    
+    // Selective rebuilds
+    final user = context.select((AuthProvider p) => p.user);
+    final challenges = context.select((ChallengeProvider p) => p.challenges);
+    final isLoading = context.select((ChallengeProvider p) => p.isLoading);
 
     if (user == null) return const SizedBox.shrink();
 
-    List<Challenge> filtered = challengeProvider.challenges.where((c) {
+    List<Challenge> filtered = challenges.where((c) {
       if (_selectedCategory == ChallengeCategory.received && c.recipient.id != user.id) return false;
       if (_selectedCategory == ChallengeCategory.sent && c.creator.id != user.id) return false;
       
@@ -122,10 +133,10 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () => challengeProvider.fetchChallenges(),
+              onRefresh: () => context.read<ChallengeProvider>().fetchChallenges(),
               color: AppTheme.white,
               backgroundColor: AppTheme.zinc900,
-              child: filtered.isEmpty && !challengeProvider.isLoading
+              child: filtered.isEmpty && !isLoading
                   ? _buildEmptyState()
                   : ListView.builder(
                       padding: const EdgeInsets.symmetric(horizontal: 16),

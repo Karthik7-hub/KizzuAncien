@@ -2,7 +2,7 @@ import 'user.dart';
 
 class Note {
   final String id;
-  final String type; // explanation, code, image, link
+  final String type;
   final String? title;
   final String content;
   final Map<String, String>? metadata;
@@ -23,10 +23,10 @@ class Note {
 
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
-      id: json['_id'] ?? '',
-      type: json['type'] ?? 'explanation',
-      title: json['title'],
-      content: json['content'] ?? '',
+      id: json['_id']?.toString() ?? '',
+      type: json['type']?.toString() ?? 'explanation',
+      title: json['title']?.toString(),
+      content: json['content']?.toString() ?? '',
       metadata: json['metadata'] != null ? Map<String, String>.from(json['metadata']) : null,
       version: json['version'] ?? 1,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
@@ -65,24 +65,15 @@ class SubmissionVersion {
   });
 
   factory SubmissionVersion.fromJson(Map<String, dynamic> json) {
-    // Safety check: createdBy might be a String ID or a populated Map
-    User? author;
-    if (json['createdBy'] != null) {
-      if (json['createdBy'] is Map<String, dynamic>) {
-        author = User.fromJson(json['createdBy']);
-      } else {
-        // It's a String ID, we can't create a full User object but we avoid crashing
-        // The UI will just show 'Unknown' or fallback to challenge recipient
-      }
-    }
-
+    var notesList = json['notes'] as List? ?? [];
+    
     return SubmissionVersion(
       versionNumber: json['versionNumber'] ?? 1,
-      notes: (json['notes'] as List? ?? []).map((n) => Note.fromJson(n)).toList(),
-      status: json['status'] ?? 'pending',
-      reviewerNote: json['reviewerNote'],
+      notes: notesList.map((n) => Note.fromJson(n)).toList(),
+      status: json['status']?.toString() ?? 'pending',
+      reviewerNote: json['reviewerNote']?.toString(),
       reviewedAt: json['reviewedAt'] != null ? DateTime.parse(json['reviewedAt']) : null,
-      createdBy: author,
+      createdBy: (json['createdBy'] is Map<String, dynamic>) ? User.fromJson(json['createdBy']) : null,
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
     );
   }
@@ -106,19 +97,15 @@ class ChallengeSubmission {
   });
 
   factory ChallengeSubmission.fromJson(Map<String, dynamic> json) {
+    var versionsList = json['versions'] as List? ?? [];
+    
     return ChallengeSubmission(
-      id: json['_id'] ?? '',
-      challengeId: json['challenge'] is String ? json['challenge'] : (json['challenge']?['_id'] ?? ''),
-      submitterId: json['submitter'] is String ? json['submitter'] : (json['submitter']?['_id'] ?? ''),
+      id: json['_id']?.toString() ?? '',
+      challengeId: json['challenge'] is String ? json['challenge'] : (json['challenge']?['_id']?.toString() ?? ''),
+      submitterId: json['submitter'] is String ? json['submitter'] : (json['submitter']?['_id']?.toString() ?? ''),
       currentVersion: json['currentVersion'] ?? 1,
-      versions: (json['versions'] as List? ?? []).map((v) {
-        if (v is Map<String, dynamic>) {
-          return SubmissionVersion.fromJson(v);
-        }
-        // Fallback for unexpected data format
-        return SubmissionVersion(versionNumber: 0, notes: [], status: 'error', createdAt: DateTime.now());
-      }).toList(),
-      status: json['status'] ?? 'pending',
+      versions: versionsList.map((v) => SubmissionVersion.fromJson(v)).toList(),
+      status: json['status']?.toString() ?? 'pending',
     );
   }
 }
@@ -143,21 +130,15 @@ class ChallengeActivity {
   });
 
   factory ChallengeActivity.fromJson(Map<String, dynamic> json) {
-    User? activityUser;
-    if (json['user'] != null && json['user'] is Map<String, dynamic>) {
-      activityUser = User.fromJson(json['user']);
-    } else {
-      // Fallback user if populate fails
-      activityUser = User(id: '', name: 'System', email: '', username: 'system', gender: 'other', currentStreak: 0, longestStreak: 0);
-    }
-
     return ChallengeActivity(
-      id: json['_id'] ?? '',
-      challengeId: json['challenge'] ?? '',
-      user: activityUser,
-      type: json['type'] ?? '',
+      id: json['_id']?.toString() ?? '',
+      challengeId: json['challenge']?.toString() ?? '',
+      user: (json['user'] is Map<String, dynamic>) 
+          ? User.fromJson(json['user']) 
+          : User(id: '', name: 'System', email: '', username: 'system', gender: 'other', currentStreak: 0, longestStreak: 0),
+      type: json['type']?.toString() ?? '',
       versionNumber: json['versionNumber'],
-      message: json['message'],
+      message: json['message']?.toString(),
       createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
     );
   }
@@ -176,6 +157,12 @@ class Challenge {
   final DateTime createdAt;
   final DateTime updatedAt;
   final ChallengeSubmission? submission;
+  
+  // Discussion Metadata
+  final String? lastMessage;
+  final DateTime? lastMessageAt;
+  final String? lastMessageBy;
+  final Map<String, int> unreadCounts;
 
   Challenge({
     required this.id,
@@ -190,40 +177,41 @@ class Challenge {
     required this.createdAt,
     required this.updatedAt,
     this.submission,
+    this.lastMessage,
+    this.lastMessageAt,
+    this.lastMessageBy,
+    this.unreadCounts = const {},
   });
 
   factory Challenge.fromJson(Map<String, dynamic> json) {
-    User? creatorUser;
-    if (json['creator'] is Map<String, dynamic>) {
-      creatorUser = User.fromJson(json['creator']);
-    } else {
-      creatorUser = User(id: json['creator'] ?? '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0);
-    }
-
-    User? recipientUser;
-    if (json['recipient'] is Map<String, dynamic>) {
-      recipientUser = User.fromJson(json['recipient']);
-    } else {
-      recipientUser = User(id: json['recipient'] ?? '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0);
+    Map<String, int> unreads = {};
+    if (json['unreadCount'] != null && json['unreadCount'] is Map) {
+      json['unreadCount'].forEach((key, value) {
+        unreads[key.toString()] = (value as num).toInt();
+      });
     }
 
     return Challenge(
-      id: json['_id'] ?? '',
-      creator: creatorUser,
-      recipient: recipientUser,
-      title: json['title'] ?? '',
-      description: json['description'],
+      id: json['_id']?.toString() ?? '',
+      creator: (json['creator'] is Map<String, dynamic>) 
+          ? User.fromJson(json['creator']) 
+          : User(id: '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0),
+      recipient: (json['recipient'] is Map<String, dynamic>) 
+          ? User.fromJson(json['recipient']) 
+          : User(id: '', name: 'Unknown', email: '', username: 'unknown', gender: 'other', currentStreak: 0, longestStreak: 0),
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString(),
       deadline: DateTime.parse(json['deadline']),
-      proofType: json['proofType'] ?? 'any',
-      status: json['status'] ?? 'pending',
-      coverImage: json['coverImage'],
-      createdAt: json['createdAt'] != null 
-          ? DateTime.parse(json['createdAt']) 
-          : DateTime.now(),
-      updatedAt: json['updatedAt'] != null 
-          ? DateTime.parse(json['updatedAt'])
-          : DateTime.now(),
+      proofType: json['proofType']?.toString() ?? 'any',
+      status: json['status']?.toString() ?? 'pending',
+      coverImage: json['coverImage']?.toString(),
+      createdAt: json['createdAt'] != null ? DateTime.parse(json['createdAt']) : DateTime.now(),
+      updatedAt: json['updatedAt'] != null ? DateTime.parse(json['updatedAt']) : DateTime.now(),
       submission: json['submission'] != null ? ChallengeSubmission.fromJson(json['submission']) : null,
+      lastMessage: json['lastMessage']?.toString(),
+      lastMessageAt: json['lastMessageAt'] != null ? DateTime.parse(json['lastMessageAt']) : null,
+      lastMessageBy: json['lastMessageBy']?.toString(),
+      unreadCounts: unreads,
     );
   }
 }

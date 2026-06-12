@@ -22,7 +22,9 @@ const submissionSchema = new mongoose.Schema({
   submitter: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   currentVersion: { type: Number, default: 1 },
   versions: [versionSchema],
-  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
+  status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+  latestVersionData: { type: Object }, // Store a summary of the latest version for instant render
+  versionCount: { type: Number, default: 1 }
 }, { timestamps: true });
 
 submissionSchema.index({ challenge: 1 });

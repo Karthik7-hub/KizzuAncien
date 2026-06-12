@@ -30,8 +30,9 @@ void main() {
   // Ensure the binding is initialized for the first frame
   WidgetsFlutterBinding.ensureInitialized();
   
-  // We run the app IMMEDIATELY to show the splash screen.
-  // Async initializations are moved to the app lifecycle or splash screen.
+  // Register background handler strictly once here
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
   runApp(
     MultiProvider(
       providers: [
@@ -55,8 +56,6 @@ class KizzuAncienApp extends StatefulWidget {
 }
 
 class _KizzuAncienAppState extends State<KizzuAncienApp> {
-  bool _isInitialized = false;
-
   @override
   void initState() {
     super.initState();
@@ -65,16 +64,11 @@ class _KizzuAncienAppState extends State<KizzuAncienApp> {
 
   Future<void> _initApp() async {
     try {
-      // Initialize Firebase in the background
+      // Initialize Firebase once
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
       NotificationService.init();
     } catch (e) {
       AppLogger.error('Initialization error', e);
-    } finally {
-      setState(() {
-        _isInitialized = true;
-      });
     }
   }
 
@@ -85,8 +79,6 @@ class _KizzuAncienAppState extends State<KizzuAncienApp> {
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      // SplashScreen is always shown first and handles its own logic.
-      // It will wait for _isInitialized if necessary via its internal logic.
       home: const SplashScreen(),
     );
   }

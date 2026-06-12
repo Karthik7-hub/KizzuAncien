@@ -7,6 +7,7 @@ const { createCappedNotification } = require('../utils/notificationUtils');
 const PointTransaction = require('../models/PointTransaction');
 const { uploadImage } = require('../services/imageKitService');
 const { sendPushNotification } = require('../services/firebaseService');
+const { getLatestVersionSummary } = require('../utils/submissionUtils');
 
 exports.createChallenge = async (req, res, next) => {
   try {
@@ -52,22 +53,23 @@ exports.getChallenges = async (req, res, next) => {
       $or: [{ creator: req.user._id }, { recipient: req.user._id }]
     })
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
+    .populate('lastMessageBy', 'name')
     .sort('-createdAt');
 
-    // Fetch submissions for these challenges and populate version authors
+    // Fetch submissions for these challenges (only summary fields)
     const challengeIds = challenges.map(c => c._id);
     const submissions = await ChallengeSubmission.find({
       challenge: { $in: challengeIds }
-    }).populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
+    }).select('challenge currentVersion status latestVersionData versionCount');
 
     // Merge submissions into challenges
-    const results = await Promise.all(challenges.map(async challenge => {
+    const results = challenges.map(challenge => {
       let submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
       return {
         ...challenge.toObject(),
         submission: submission || null
       };
-    }));
+    });
 
     res.json(results);
   } catch (error) {
@@ -174,7 +176,9 @@ exports.submitProof = async (req, res, next) => {
       submitter: req.user._id,
       currentVersion: 1,
       versions: [initialVersion],
-      status: 'pending'
+      status: 'pending',
+      versionCount: 1,
+      latestVersionData: getLatestVersionSummary(initialVersion)
     });
 
     await submission.populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
@@ -238,6 +242,8 @@ exports.editSubmission = async (req, res, next) => {
     submission.versions.push(newVersion);
     submission.currentVersion = nextVersionNumber;
     submission.status = 'pending';
+    submission.versionCount = submission.versions.length;
+    submission.latestVersionData = getLatestVersionSummary(newVersion);
     await submission.save();
 
     await submission.populate('versions.createdBy', 'name username profileImageUrl gender avatarType');
@@ -308,6 +314,7 @@ exports.reviewSubmission = async (req, res, next) => {
 
     if (versionNumber === submission.currentVersion) {
       submission.status = status;
+      submission.latestVersionData = getLatestVersionSummary(version);
     }
 
     await submission.save();

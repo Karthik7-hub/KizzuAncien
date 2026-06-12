@@ -24,6 +24,7 @@ class _ProfileScreenState extends State<ProfileScreen> with AutomaticKeepAliveCl
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final authProvider = context.read<AuthProvider>();
+      // Only fetch if data is missing, ensuring smooth first-visit transition
       if (authProvider.user == null || authProvider.stats.isEmpty) {
         authProvider.checkAuth();
       }

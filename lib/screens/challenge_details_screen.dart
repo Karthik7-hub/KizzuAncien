@@ -7,10 +7,12 @@ import '../models/challenge.dart';
 import '../theme/app_theme.dart';
 import '../widgets/note_widgets.dart';
 import '../widgets/custom_button.dart';
-import '../widgets/avatar_widget.dart';
+import '../widgets/keyboard_spacer.dart';
 import '../providers/auth_provider.dart';
 import '../providers/challenge_provider.dart';
+import '../providers/navigation_provider.dart';
 import 'submit_proof_screen.dart';
+import 'discussion_screen.dart';
 
 class ChallengeDetailsScreen extends StatefulWidget {
   final Challenge challenge;
@@ -21,62 +23,62 @@ class ChallengeDetailsScreen extends StatefulWidget {
 }
 
 class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
-  int _selectedVersionNumber = 1;
+  int? _selectedVersionNumber;
   List<ChallengeActivity> _activities = [];
-  bool _isLoadingActivities = true;
+  bool _isDataLoaded = false;
 
   @override
   void initState() {
     super.initState();
+    // 1. Set the latest version number AT ONCE from passed data
+    _selectedVersionNumber = widget.challenge.submission?.currentVersion ?? 1;
+    
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _loadData();
+      _loadDeepData();
     });
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadDeepData() async {
     final challengeProvider = context.read<ChallengeProvider>();
+    
+    // Fetch deep data (messages, activities) in the background
     await Future.wait([
       challengeProvider.fetchMessages(widget.challenge.id),
       _loadActivities(),
     ]);
     
-    final currentChallenge = challengeProvider.challenges.firstWhere(
-      (c) => c.id == widget.challenge.id,
-      orElse: () => widget.challenge,
-    );
-    
-    if (currentChallenge.submission != null) {
-      if (mounted) {
-        setState(() {
-          _selectedVersionNumber = currentChallenge.submission!.currentVersion;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        _isDataLoaded = true;
+      });
     }
   }
 
   Future<void> _loadActivities() async {
-    if (mounted) setState(() => _isLoadingActivities = true);
-    final activities = await context.read<ChallengeProvider>().fetchActivities(widget.challenge.id);
+    final challengeProvider = context.read<ChallengeProvider>();
+    final activities = await challengeProvider.fetchActivities(widget.challenge.id);
     if (mounted) {
       setState(() {
         _activities = activities;
-        _isLoadingActivities = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
-    final challengeProvider = context.watch<ChallengeProvider>();
+    final user = context.select((AuthProvider p) => p.user);
     
-    final currentChallenge = challengeProvider.challenges.firstWhere(
-      (c) => c.id == widget.challenge.id,
-      orElse: () => widget.challenge,
+    // Select ONLY the specific challenge to avoid unnecessary rebuilds
+    final currentChallenge = context.select((ChallengeProvider p) => 
+      p.challenges.firstWhere(
+        (c) => c.id == widget.challenge.id,
+        orElse: () => widget.challenge,
+      )
     );
 
     final bool isRecipient = currentChallenge.recipient.id == user?.id;
     final bool isCreator = currentChallenge.creator.id == user?.id;
+    final bool hasActions = isRecipient || (isCreator && currentChallenge.submission != null && currentChallenge.submission!.versions.last.status == 'pending');
 
     if (user == null) {
        return const Scaffold(
@@ -88,18 +90,22 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     return Scaffold(
       backgroundColor: AppTheme.black,
       body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
         slivers: [
-          _buildSliverAppBar(currentChallenge),
+          _buildCompactAppBar(currentChallenge),
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _buildStatusOverview(currentChallenge),
+                  RepaintBoundary(child: _buildStatusOverview(currentChallenge)),
+                  const SizedBox(height: 24),
+                  
+                  _buildDiscussionPreview(currentChallenge),
                   const SizedBox(height: 32),
                   
-                  // Challenge Description
+                  // Challenge Description (Renders immediately)
                   if (currentChallenge.description != null && currentChallenge.description!.isNotEmpty) ...[
                     const Text(
                       'THE CHALLENGE',
@@ -110,92 +116,82 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                       currentChallenge.description!,
                       style: const TextStyle(color: AppTheme.zinc400, fontSize: 15, height: 1.6),
                     ),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
                   ],
                   
                   if (currentChallenge.submission != null) ...[
                     _buildSubmissionHeader(currentChallenge.submission!),
-                    const SizedBox(height: 24),
+                    const SizedBox(height: 20),
                     _buildSubmissionCard(currentChallenge.submission!),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
                     _buildNotesSection(currentChallenge.submission!),
-                    const SizedBox(height: 48),
+                    const SizedBox(height: 40),
                     _buildActivityTimeline(),
                   ] else ...[
                     _buildEmptySubmissionState(isRecipient, currentChallenge),
                   ],
 
-                  const SizedBox(height: 120),
+                  SizedBox(height: hasActions ? 120 : 40),
                 ],
               ),
             ),
           ),
         ],
       ),
-      bottomSheet: currentChallenge.submission != null 
+      bottomSheet: hasActions 
           ? _buildActionArea(context, currentChallenge, isRecipient, isCreator)
           : null,
     );
   }
 
-  Widget _buildSliverAppBar(Challenge challenge) {
+  Widget _buildCompactAppBar(Challenge challenge) {
+    // Standard SliverAppBar instead of large Expanded stack to fix the top gap
     return SliverAppBar(
-      expandedHeight: 240,
+      expandedHeight: 140, // Reduced from 240
       backgroundColor: AppTheme.black,
       leading: IconButton(
         icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-        onPressed: () => Navigator.pop(context),
+        onPressed: () {
+          if (Navigator.canPop(context)) {
+            Navigator.pop(context);
+          } else {
+            context.read<NavigationProvider>().setIndex(0);
+          }
+        },
       ),
       pinned: true,
       flexibleSpace: FlexibleSpaceBar(
+        centerTitle: false,
+        titlePadding: const EdgeInsets.only(left: 24, bottom: 16),
+        title: Hero(
+          tag: 'challenge_title_${challenge.id}',
+          child: Material(
+            color: Colors.transparent,
+            child: Text(
+              challenge.title.toUpperCase(),
+              style: const TextStyle(
+                fontSize: 18, 
+                fontWeight: FontWeight.bold,
+                color: AppTheme.white,
+                letterSpacing: -0.5,
+              ),
+            ),
+          ),
+        ),
         background: Stack(
           fit: StackFit.expand,
           children: [
             if (challenge.coverImage != null)
-              Image.network(challenge.coverImage!, fit: BoxFit.cover)
+              Image.network(challenge.coverImage!, fit: BoxFit.cover, opacity: const AlwaysStoppedAnimation(.4))
             else
               Container(color: AppTheme.zinc900),
             Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    AppTheme.black.withValues(alpha: 0.8),
-                    AppTheme.black,
-                  ],
+                  colors: [Colors.transparent, AppTheme.black],
                 ),
-              ),
-            ),
-            Positioned(
-              bottom: 24,
-              left: 24,
-              right: 24,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    challenge.title.toUpperCase(),
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.white,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      AvatarWidget(user: challenge.creator, size: 20),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Created by ${challenge.creator.name}',
-                        style: const TextStyle(color: AppTheme.zinc500, fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ],
               ),
             ),
           ],
@@ -206,23 +202,23 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
   Widget _buildStatusOverview(Challenge challenge) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       decoration: BoxDecoration(
         color: AppTheme.zinc950,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AppTheme.zinc900),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           _buildStatItem('STATUS', challenge.status.toUpperCase(), AppTheme.white),
-          Container(width: 1, height: 32, color: AppTheme.zinc900),
+          Container(width: 1, height: 24, color: AppTheme.zinc900),
           _buildStatItem(
             'DUE', 
             DateFormat('MMM d').format(challenge.deadline).toUpperCase(),
             AppTheme.zinc400
           ),
-          Container(width: 1, height: 32, color: AppTheme.zinc900),
+          Container(width: 1, height: 24, color: AppTheme.zinc900),
           _buildStatItem('TYPE', challenge.proofType.toUpperCase(), AppTheme.zinc400),
         ],
       ),
@@ -239,9 +235,90 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         const SizedBox(height: 4),
         Text(
           value,
-          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: valueColor),
+          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: valueColor),
         ),
       ],
+    );
+  }
+
+  Widget _buildDiscussionPreview(Challenge challenge) {
+    // Only watch messages for THIS challenge
+    final messages = context.select((ChallengeProvider p) => p.challengeMessages[challenge.id] ?? []);
+    final lastMessage = messages.isNotEmpty ? messages.last : null;
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => DiscussionScreen(challenge: challenge),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeOutCubic;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            return SlideTransition(position: animation.drive(tween), child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 300),
+        ),
+      ),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: AppTheme.zinc950,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: AppTheme.zinc900),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppTheme.zinc900,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: const Icon(LucideIcons.messagesSquare, color: AppTheme.white, size: 20),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'DISCUSSION',
+                        style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.2),
+                      ),
+                      Icon(LucideIcons.chevronRight, size: 14, color: AppTheme.zinc800),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  if (!_isDataLoaded)
+                     _buildSkeleton(width: 150, height: 14)
+                  else
+                    Text(
+                      lastMessage != null 
+                        ? '${lastMessage.sender.name}: ${lastMessage.content}'
+                        : 'No messages yet. Start chatting!',
+                      style: const TextStyle(color: AppTheme.white, fontSize: 15, fontWeight: FontWeight.bold),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  const SizedBox(height: 4),
+                  if (!_isDataLoaded)
+                    _buildSkeleton(width: 100, height: 10)
+                  else
+                    Text(
+                      lastMessage != null ? 'Last active: ${timeago.format(lastMessage.createdAt)}' : 'Tap to open chat',
+                      style: const TextStyle(color: AppTheme.zinc500, fontSize: 13),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -259,7 +336,18 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
             ),
           ],
         ),
-        if (submission.versions.length > 1) _buildVersionDropdown(submission),
+        if (submission.versions.length > 1) 
+          Row(
+            children: [
+              IconButton(
+                icon: const Icon(LucideIcons.layers, size: 16, color: AppTheme.zinc600),
+                onPressed: () => _showComparison(submission),
+                tooltip: 'Compare Versions',
+              ),
+              const SizedBox(width: 8),
+              _buildVersionDropdown(submission),
+            ],
+          ),
       ],
     );
   }
@@ -367,6 +455,10 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     
     final List<Note> notes = selectedVersion.notes;
 
+    // Smart naming for untitled notes
+    int codeCount = 0;
+    int explanationCount = 0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -378,22 +470,29 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         if (notes.isEmpty)
           const Text('No detailed notes provided for this version.', style: TextStyle(color: AppTheme.zinc800, fontSize: 13))
         else
-          ...notes.map((note) => Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: _buildNoteRenderer(note),
-          )),
+          ...notes.map((note) {
+            String? smartTitle = note.title;
+            if (smartTitle == null || smartTitle.isEmpty) {
+              if (note.type == 'code') {
+                codeCount++;
+                smartTitle = 'Untitled Code $codeCount';
+              } else if (note.type == 'explanation') {
+                explanationCount++;
+                smartTitle = 'Untitled Explanation $explanationCount';
+              }
+            }
+            
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: NotePreviewCard(
+                note: note, 
+                displayTitle: smartTitle,
+                showOnlyTitle: note.type == 'code' || note.type == 'explanation',
+              ),
+            );
+          }),
       ],
     );
-  }
-
-  Widget _buildNoteRenderer(Note note) {
-    switch (note.type) {
-      case 'explanation': return ExplanationNoteWidget(note: note);
-      case 'code': return CodeNoteWidget(note: note);
-      case 'image': return ImageNoteWidget(note: note);
-      case 'link': return LinkNoteWidget(note: note);
-      default: return const SizedBox.shrink();
-    }
   }
 
   Widget _buildActivityTimeline() {
@@ -405,8 +504,8 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
           style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
         ),
         const SizedBox(height: 32),
-        if (_isLoadingActivities)
-          const Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.zinc800)))
+        if (!_isDataLoaded)
+           ...List.generate(3, (i) => Padding(padding: const EdgeInsets.only(bottom: 24), child: _buildSkeleton(width: double.infinity, height: 40)))
         else if (_activities.isEmpty)
           const Text('No logs recorded yet.', style: TextStyle(color: AppTheme.zinc800, fontSize: 12))
         else
@@ -528,17 +627,14 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 40),
-      decoration: BoxDecoration(
+      decoration: const BoxDecoration(
         color: AppTheme.black,
         border: Border(top: BorderSide(color: AppTheme.zinc900)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withValues(alpha: 0.5), blurRadius: 20, offset: const Offset(0, -10)),
-        ],
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (isRecipient && latestVersion.status != 'approved')
+          if (isRecipient)
             CustomButton(
               text: 'Edit Submission',
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => SubmitProofScreen(challenge: challenge, existingSubmission: submission))),
@@ -570,20 +666,19 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
               ],
             ),
           ],
-          if (submission.versions.length > 1) ...[
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => _showComparison(submission),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  'COMPARE WITH PREVIOUS VERSION',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1),
-                ),
-              ),
-            ),
-          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildSkeleton({required double width, required double height, double borderRadius = 8}) {
+    return Container(
+      width: width,
+      height: height,
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(
+        color: AppTheme.zinc900.withValues(alpha: 0.8),
+        borderRadius: BorderRadius.circular(borderRadius),
       ),
     );
   }
@@ -596,12 +691,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       backgroundColor: AppTheme.zinc950,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-          left: 24,
-          right: 24,
-          top: 32,
-        ),
+        padding: const EdgeInsets.fromLTRB(24, 32, 24, 0),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -636,13 +726,13 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
                 );
                 if (mounted) {
                   Navigator.pop(context);
-                  if (success) _loadData();
+                  if (success) _loadDeepData();
                 }
               },
               backgroundColor: status == 'approved' ? AppTheme.white : AppTheme.zinc900,
               textColor: status == 'approved' ? AppTheme.black : Colors.redAccent,
             ),
-            const SizedBox(height: 40),
+            const IsolatedKeyboardSpacer(additionalPadding: 40),
           ],
         ),
       ),
