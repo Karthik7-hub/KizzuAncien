@@ -19,30 +19,44 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
       maxLines: maxLines,
-      style: const TextStyle(color: AppTheme.white, fontSize: 16),
-      cursorColor: AppTheme.white,
+      style: TextStyle(
+        color: isDark ? AppTheme.white : AppTheme.zinc950,
+        fontSize: 16,
+      ),
+      cursorColor: isDark ? AppTheme.white : AppTheme.black,
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(color: AppTheme.zinc600, fontSize: 16),
+        hintStyle: TextStyle(
+          color: isDark ? AppTheme.zinc600 : AppTheme.zinc400,
+          fontSize: 16,
+        ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         filled: true,
-        fillColor: AppTheme.zinc950,
+        fillColor: isDark ? AppTheme.zinc950 : AppTheme.white,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: const BorderSide(color: AppTheme.zinc900),
+          borderSide: BorderSide(
+            color: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: const BorderSide(color: AppTheme.zinc900),
+          borderSide: BorderSide(
+            color: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-          borderSide: const BorderSide(color: AppTheme.white, width: 1),
+          borderSide: BorderSide(
+            color: isDark ? AppTheme.white : AppTheme.black,
+            width: 1,
+          ),
         ),
       ),
     );

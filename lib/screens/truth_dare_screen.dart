@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:kizzu_ancien/models/user.dart';
-import 'package:kizzu_ancien/providers/auth_provider.dart';
 import 'package:kizzu_ancien/providers/truth_dare_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/widgets/custom_button.dart';
 import '../widgets/avatar_widget.dart';
+import '../widgets/app_header.dart';
 
 class TruthDareScreen extends StatefulWidget {
   final User recipient;
@@ -22,23 +22,14 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final user = context.watch<AuthProvider>().user;
     final isLoading = context.watch<TruthDareProvider>().isLoading;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
-      appBar: AppBar(
-        backgroundColor: AppTheme.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Spend Points',
-          style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: const AppHeader(
+        title: 'Spend Points',
+        showBackButton: true,
       ),
       body: Column(
         children: [
@@ -51,28 +42,28 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppTheme.zinc900,
+                      color: isDark ? AppTheme.zinc900 : AppTheme.white,
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: AppTheme.zinc800),
+                      border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
                     ),
                     child: Column(
                       children: [
-                        const Text(
+                        Text(
                           'AVAILABLE POINTS',
-                          style: TextStyle(color: AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
+                          style: TextStyle(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1),
                         ),
                         const SizedBox(height: 12),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                           children: [
                             const Icon(LucideIcons.award, size: 28, color: Colors.amber),
                             const SizedBox(width: 12),
                             Text(
                               '${widget.recipient.relationshipPoints ?? 0}',
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 36,
                                 fontWeight: FontWeight.bold,
-                                color: AppTheme.white,
+                                color: isDark ? AppTheme.white : AppTheme.zinc950,
                               ),
                             ),
                           ],
@@ -86,7 +77,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                   Container(
                     padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
-                      color: AppTheme.zinc900,
+                      color: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Row(
@@ -106,22 +97,22 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                   Container(
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: AppTheme.zinc900.withValues(alpha: 0.5),
+                      color: isDark ? AppTheme.zinc900.withValues(alpha: 0.5) : AppTheme.zinc100.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(32),
-                      border: Border.all(color: AppTheme.zinc800),
+                      border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
                     ),
                     child: Column(
                       children: [
                         Row(
                           children: [
-                            const Text('RECIPIENT', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                            Text('RECIPIENT', style: TextStyle(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
                             const SizedBox(width: 16),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                               decoration: BoxDecoration(
-                                color: AppTheme.black,
+                                color: isDark ? AppTheme.black : AppTheme.white,
                                 borderRadius: BorderRadius.circular(20),
-                                border: Border.all(color: AppTheme.zinc800),
+                                border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
                               ),
                               child: Row(
                                 children: [
@@ -129,7 +120,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                                   const SizedBox(width: 8),
                                   Text(
                                     widget.recipient.name,
-                                    style: const TextStyle(color: AppTheme.white, fontSize: 12, fontWeight: FontWeight.bold),
+                                    style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950, fontSize: 12, fontWeight: FontWeight.bold),
                                   ),
                                 ],
                               ),
@@ -140,12 +131,12 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                         TextField(
                           controller: _inputController,
                           maxLines: 6,
-                          style: const TextStyle(color: AppTheme.white, fontSize: 18, height: 1.5),
+                          style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950, fontSize: 18, height: 1.5),
                           decoration: InputDecoration(
                             hintText: _isTruthMode
                                 ? 'What do you want to know?'
                                 : 'What should they do?',
-                            hintStyle: const TextStyle(color: AppTheme.zinc700),
+                            hintStyle: TextStyle(color: isDark ? AppTheme.zinc700 : AppTheme.zinc400),
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -160,7 +151,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
             child: CustomButton(
               text: 'Send ${_isTruthMode ? "Truth" : "Dare"}',
               isLoading: isLoading,
@@ -193,9 +184,9 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
                   );
                 }
               },
-              backgroundColor: AppTheme.white,
-              textColor: AppTheme.black,
-              icon: const Icon(LucideIcons.send, size: 20),
+              backgroundColor: isDark ? AppTheme.white : AppTheme.black,
+              textColor: isDark ? AppTheme.black : AppTheme.white,
+              icon: Icon(LucideIcons.send, size: 20, color: isDark ? AppTheme.black : AppTheme.white),
             ),
           ),
         ],
@@ -204,6 +195,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
   }
 
   Widget _buildTab(bool mode, String title, String pts) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _isTruthMode == mode;
     return GestureDetector(
       onTap: () => setState(() => _isTruthMode = mode),
@@ -211,7 +203,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.white : Colors.transparent,
+          color: isSelected ? (isDark ? AppTheme.white : AppTheme.black) : Colors.transparent,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -221,7 +213,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? AppTheme.black : AppTheme.zinc500,
+                color: isSelected ? (isDark ? AppTheme.black : AppTheme.white) : AppTheme.zinc500,
               ),
             ),
             Text(
@@ -229,7 +221,9 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? AppTheme.black.withValues(alpha: 0.5) : AppTheme.zinc700,
+                color: isSelected 
+                    ? (isDark ? AppTheme.black.withValues(alpha: 0.5) : AppTheme.white.withValues(alpha: 0.7)) 
+                    : (isDark ? AppTheme.zinc700 : AppTheme.zinc500),
               ),
             ),
           ],

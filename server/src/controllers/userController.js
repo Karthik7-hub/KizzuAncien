@@ -73,6 +73,26 @@ exports.updateProfile = async (req, res, next) => {
         user.gender = req.body.gender;
         user.avatarType = user.gender === 'male' ? 'male_default' : 'female_default';
       }
+
+      if (req.body.preferences) {
+        user.preferences = {
+          ...user.preferences,
+          ...req.body.preferences,
+          notifications: {
+            ...user.preferences?.notifications,
+            ...(req.body.preferences.notifications || {})
+          },
+          privacy: {
+            ...user.preferences?.privacy,
+            ...(req.body.preferences.privacy || {})
+          },
+          appearance: {
+            ...user.preferences?.appearance,
+            ...(req.body.preferences.appearance || {})
+          }
+        };
+      }
+
       const updatedUser = await user.save();
       res.json(updatedUser);
     } else {

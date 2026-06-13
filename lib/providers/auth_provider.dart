@@ -5,6 +5,11 @@ import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 
+import 'package:kizzu_ancien/utils/logger.dart';
+
+import 'package:google_sign_in/google_sign_in.dart';
+import '../utils/constants.dart';
+
 enum AuthStatus { authenticated, unauthenticated, offline }
 
 class AuthProvider extends ChangeNotifier {
@@ -171,6 +176,19 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       // Silently fail logout server-side update
     }
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: AppConstants.googleServerClientId,
+      );
+      if (await googleSignIn.isSignedIn()) {
+        await googleSignIn.signOut();
+        await googleSignIn.disconnect(); // Fully disconnect to force account picker
+      }
+    } catch (e) {
+      AppLogger.error('Google SignOut error', e);
+    }
+
     await _storage.deleteAll();
     _user = null;
     _status = AuthStatus.unauthenticated;
@@ -178,38 +196,49 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<AuthStatus> checkAuth() async {
-    final token = await _storage.read(key: 'accessToken');
-    if (token == null) {
-      _status = AuthStatus.unauthenticated;
-      notifyListeners();
-      return AuthStatus.unauthenticated;
-    }
-    
     try {
-      // Use a shorter timeout for startup check to avoid hanging the splash screen
+      final token = await _storage.read(key: 'accessToken');
+      if (token == null) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return AuthStatus.unauthenticated;
+      }
+      
+      // Proactively check profile. If it fails with 401, ApiService interceptor 
+      // will attempt refresh automatically before returning here.
       final response = await _apiService.dio.get('/users/profile').timeout(
-        const Duration(seconds: 4),
+        const Duration(seconds: 10),
       );
       
+      if (response.data['user'] == null) {
+        AppLogger.error('checkAuth: user data is null in response');
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return AuthStatus.unauthenticated;
+      }
+
       _user = User.fromJson(response.data['user']);
       _stats = response.data['stats'] ?? {};
       _status = AuthStatus.authenticated;
       notifyListeners();
       return AuthStatus.authenticated;
     } on DioException catch (e) {
+      AppLogger.error('checkAuth DioException: ${e.type}', e);
+      
+      // If we reach here after interceptor failure, logout
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         await logout();
         return AuthStatus.unauthenticated;
       }
       
-      // If it's a network error or timeout, we don't log out, but we might be offline
+      // Network/Server issues
       if (e.type == DioExceptionType.connectionTimeout || 
           e.type == DioExceptionType.receiveTimeout ||
+          e.type == DioExceptionType.sendTimeout ||
           e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.badCertificate ||
           e.type == DioExceptionType.unknown) {
         
-        // If we have a token but can't reach the server, we might still want to allow
-        // entry if we have cached data, but for now let's treat as offline
         _status = AuthStatus.offline;
         notifyListeners();
         return AuthStatus.offline; 
@@ -218,11 +247,32 @@ class AuthProvider extends ChangeNotifier {
       _status = AuthStatus.unauthenticated;
       notifyListeners();
       return AuthStatus.unauthenticated;
-    } catch (e) {
-      // Any other error (like timeout from .timeout())
+    } catch (e, stack) {
+      AppLogger.error('checkAuth unexpected error', e, stack);
       _status = AuthStatus.offline;
       notifyListeners();
       return AuthStatus.offline;
+    }
+  }
+
+  Future<void> updatePreferences(Map<String, dynamic> preferences) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await _apiService.dio.put('/users/profile', data: {
+        'preferences': preferences,
+      });
+      _user = User.fromJson(response.data);
+      _isLoading = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      throw Exception(e.response?.data['message'] ?? 'Preferences update failed');
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
 }

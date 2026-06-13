@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../utils/logger.dart';
+import 'package:kizzu_ancien/utils/logger.dart';
 
 class FriendProvider extends ChangeNotifier {
   List<User> _friends = [];

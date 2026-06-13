@@ -1,8 +1,21 @@
 const Message = require('../models/Message');
+const Challenge = require('../models/Challenge');
 
 exports.getMessagesByChallenge = async (req, res, next) => {
   try {
-    const messages = await Message.find({ challenge: req.params.challengeId })
+    const { challengeId } = req.params;
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found' });
+    }
+
+    // Security check: Only creator or recipient can view messages
+    if (challenge.creator.toString() !== req.user._id.toString() &&
+        challenge.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view messages for this challenge' });
+    }
+
+    const messages = await Message.find({ challenge: challengeId })
       .populate('sender', 'name username profileImageUrl gender avatarType')
       .sort('createdAt');
     res.json(messages);

@@ -28,7 +28,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   List<Challenge> _history = [];
   bool _isLoading = true;
   String _searchQuery = '';
-  String _sortBy = 'newest'; // newest, oldest, updated, alphabetical
+  String _sortBy = 'newest';
   ChallengeCategory _selectedCategory = ChallengeCategory.all;
   final TextEditingController _searchController = TextEditingController();
 
@@ -45,8 +45,11 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   }
 
   Future<void> _loadData() async {
-    final profileData = await context.read<FriendProvider>().fetchUserProfile(widget.friend.id);
-    final challenges = await context.read<ChallengeProvider>().fetchSharedChallenges(widget.friend.id);
+    final friendProvider = context.read<FriendProvider>();
+    final challengeProvider = context.read<ChallengeProvider>();
+    
+    final profileData = await friendProvider.fetchUserProfile(widget.friend.id);
+    final challenges = await challengeProvider.fetchSharedChallenges(widget.friend.id);
     
     if (mounted) {
       setState(() {
@@ -60,7 +63,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   }
 
   Future<void> _loadHistory() async {
-    final challenges = await context.read<ChallengeProvider>().fetchSharedChallenges(widget.friend.id);
+    final challengeProvider = context.read<ChallengeProvider>();
+    final challenges = await challengeProvider.fetchSharedChallenges(widget.friend.id);
     if (mounted) {
       setState(() {
         _history = challenges;
@@ -75,21 +79,26 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     bool success = false;
     if (_relationshipStatus == 'NOT_FRIENDS') {
       success = await friendProvider.sendFriendRequest(widget.friend.id);
-      if (success) {
-        _relationshipStatus = 'PENDING_SENT';
-        // Reload data to get the requestId
+      if (success && mounted) {
+        setState(() {
+          _relationshipStatus = 'PENDING_SENT';
+        });
         await _loadData();
       }
     } else if (_relationshipStatus == 'PENDING_SENT' && _requestId != null) {
       success = await friendProvider.cancelRequest(_requestId!);
-      if (success) {
-        _relationshipStatus = 'NOT_FRIENDS';
-        _requestId = null;
+      if (success && mounted) {
+        setState(() {
+          _relationshipStatus = 'NOT_FRIENDS';
+          _requestId = null;
+        });
       }
     } else if (_relationshipStatus == 'PENDING_RECEIVED' && _requestId != null) {
       success = await friendProvider.respondToRequest(_requestId!, 'accepted');
-      if (success) {
-        _relationshipStatus = 'FRIENDS';
+      if (success && mounted) {
+        setState(() {
+          _relationshipStatus = 'FRIENDS';
+        });
       }
     }
 
@@ -110,52 +119,53 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     final user = context.watch<AuthProvider>().user;
     final friendProvider = context.watch<FriendProvider>();
     
-    // Use live friend data from provider if available
     final currentFriend = friendProvider.friends.firstWhere(
       (f) => f.id == widget.friend.id,
       orElse: () => widget.friend,
     );
 
     final textTheme = Theme.of(context).textTheme;
+    final primaryColor = Theme.of(context).primaryColor;
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: NestedScrollView(
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
-            backgroundColor: AppTheme.black,
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             expandedHeight: 280,
             pinned: true,
             leading: IconButton(
-              icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
+              icon: Icon(LucideIcons.chevronLeft, color: primaryColor),
               onPressed: () => Navigator.pop(context),
             ),
             flexibleSpace: FlexibleSpaceBar(
-              background: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(height: 60),
-                  AvatarWidget(user: currentFriend, size: 80, showBorder: true),
-                  const SizedBox(height: 16),
-                  Text(currentFriend.name, style: textTheme.displayMedium),
-                  Text('@${currentFriend.username}', style: textTheme.bodyMedium),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'STREAK', LucideIcons.zap, AppTheme.white),
-                      const SizedBox(width: 24),
-                      _buildMiniStat('$_relationshipPoints', 'POINTS', LucideIcons.award, AppTheme.white),
-                    ],
-                  ),
-                  if (currentFriend.lastChallengeCompletedAt != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      'Last completed ${timeago.format(currentFriend.lastChallengeCompletedAt!)}',
-                      style: const TextStyle(fontSize: 10, color: AppTheme.zinc600, fontWeight: FontWeight.bold),
+              background: Container(
+                padding: const EdgeInsets.only(top: 80),
+                child: Column(
+                  children: [
+                    AvatarWidget(user: currentFriend, size: 80, showBorder: true),
+                    const SizedBox(height: 16),
+                    Text(currentFriend.name, style: textTheme.displayMedium),
+                    Text('@${currentFriend.username}', style: textTheme.bodyMedium),
+                    const SizedBox(height: 20),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'STREAK', LucideIcons.zap, primaryColor),
+                        const SizedBox(width: 24),
+                        _buildMiniStat('$_relationshipPoints', 'POINTS', LucideIcons.award, primaryColor),
+                      ],
                     ),
+                    if (currentFriend.lastChallengeCompletedAt != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        'Last completed ${timeago.format(currentFriend.lastChallengeCompletedAt!)}',
+                        style: TextStyle(fontSize: 10, color: Theme.of(context).textTheme.labelSmall?.color, fontWeight: FontWeight.bold),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),
@@ -164,15 +174,16 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
             delegate: _SliverAppBarDelegate(
               TabBar(
                 controller: _tabController,
-                indicatorColor: AppTheme.white,
-                labelColor: AppTheme.white,
-                unselectedLabelColor: AppTheme.zinc600,
+                indicatorColor: primaryColor,
+                labelColor: primaryColor,
+                unselectedLabelColor: Theme.of(context).textTheme.labelSmall?.color,
                 labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: 1),
                 tabs: const [
                   Tab(text: 'CHALLENGES'),
                   Tab(text: 'ACTIONS'),
                 ],
               ),
+              Theme.of(context).scaffoldBackgroundColor,
             ),
           ),
         ],
@@ -194,33 +205,33 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
           children: [
             Icon(icon, size: 14, color: color),
             const SizedBox(width: 4),
-            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.white)),
+            Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
           ],
         ),
-        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.zinc600, fontWeight: FontWeight.bold)),
+        Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).textTheme.labelSmall?.color, fontWeight: FontWeight.bold)),
       ],
     );
   }
 
   Widget _buildChallengesTab(User? user) {
+    final primaryColor = Theme.of(context).primaryColor;
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2));
+      return Center(child: CircularProgressIndicator(color: primaryColor, strokeWidth: 2));
     }
 
     if (_history.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(LucideIcons.history, size: 48, color: AppTheme.zinc900),
-            SizedBox(height: 16),
-            Text('No shared history yet.', style: TextStyle(color: AppTheme.zinc700, fontSize: 13)),
+            Icon(LucideIcons.history, size: 48, color: Theme.of(context).brightness == Brightness.dark ? AppTheme.zinc900 : AppTheme.zinc200),
+            const SizedBox(height: 16),
+            Text('No shared history yet.', style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 13)),
           ],
         ),
       );
     }
 
-    // 1. Filter
     List<Challenge> filtered = _history.where((c) {
       if (_selectedCategory == ChallengeCategory.received && c.recipient.id != user?.id) return false;
       if (_selectedCategory == ChallengeCategory.sent && c.creator.id != user?.id) return false;
@@ -230,7 +241,6 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
           (c.description?.toLowerCase().contains(query) ?? false);
     }).toList();
 
-    // 2. Sort
     if (_sortBy == 'newest') {
       filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
     } else if (_sortBy == 'oldest') {
@@ -241,7 +251,6 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       filtered.sort((a, b) => a.title.compareTo(b.title));
     }
 
-    // 3. Group
     final pendingReview = filtered
         .where((c) => c.creator.id == user?.id && c.status == 'submitted')
         .toList();
@@ -260,8 +269,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
     return RefreshIndicator(
       onRefresh: _loadHistory,
-      color: AppTheme.white,
-      backgroundColor: AppTheme.zinc950,
+      color: primaryColor,
+      backgroundColor: Theme.of(context).cardTheme.color,
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.padding),
         physics: const AlwaysScrollableScrollPhysics(),
@@ -272,30 +281,42 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
             const SizedBox(height: 32),
 
             if (pendingReview.isNotEmpty) ...[
-              _buildSectionSubHeader('PENDING REVIEW', color: AppTheme.white),
+              _buildSectionSubHeader('PENDING REVIEW', color: primaryColor),
               const SizedBox(height: 16),
-              ...pendingReview.map((c) => _buildChallengeItem(c)),
+              ...pendingReview.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ChallengeCard(challenge: c),
+              )),
               const SizedBox(height: 32),
             ],
 
             if (myActive.isNotEmpty) ...[
               _buildSectionSubHeader('MY ACTIVE'),
               const SizedBox(height: 16),
-              ...myActive.map((c) => _buildChallengeItem(c)),
+              ...myActive.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ChallengeCard(challenge: c),
+              )),
               const SizedBox(height: 32),
             ],
 
             if (othersActive.isNotEmpty) ...[
               _buildSectionSubHeader('OTHERS ACTIVE'),
               const SizedBox(height: 16),
-              ...othersActive.map((c) => _buildChallengeItem(c)),
+              ...othersActive.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ChallengeCard(challenge: c),
+              )),
               const SizedBox(height: 32),
             ],
 
             if (completed.isNotEmpty) ...[
               _buildSectionSubHeader('COMPLETED'),
               const SizedBox(height: 16),
-              ...completed.map((c) => _buildChallengeItem(c)),
+              ...completed.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ChallengeCard(challenge: c),
+              )),
             ],
 
             if (filtered.isEmpty)
@@ -304,7 +325,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
                 child: Center(
                   child: Text(
                     'No challenges matching "$_searchQuery"',
-                    style: const TextStyle(color: AppTheme.zinc700, fontSize: 13),
+                    style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 13),
                   ),
                 ),
               ),
@@ -317,25 +338,31 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   }
 
   Widget _buildToolbar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) => setState(() => _searchQuery = value),
-                style: const TextStyle(color: AppTheme.white, fontSize: 13),
-                decoration: InputDecoration(
-                  hintText: 'Search history...',
-                  hintStyle: const TextStyle(color: AppTheme.zinc700),
-                  prefixIcon: const Icon(LucideIcons.search, size: 16, color: AppTheme.zinc700),
-                  filled: true,
-                  fillColor: AppTheme.zinc950,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.zinc900),
+              child: Container(
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardTheme.color,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  onChanged: (value) => setState(() => _searchQuery = value),
+                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Search history...',
+                    hintStyle: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color),
+                    prefixIcon: Icon(LucideIcons.search, size: 16, color: Theme.of(context).textTheme.labelSmall?.color),
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
               ),
@@ -347,8 +374,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
             ),
             const SizedBox(width: 8),
             PopupMenuButton<String>(
-              icon: const Icon(LucideIcons.listFilter, size: 20, color: AppTheme.zinc600),
-              color: AppTheme.zinc950,
+              icon: Icon(LucideIcons.listFilter, size: 20, color: Theme.of(context).textTheme.labelSmall?.color),
+              color: Theme.of(context).cardTheme.color,
               onSelected: (value) => setState(() => _sortBy = value),
               itemBuilder: (context) => [
                 _buildSortItem('newest', 'Newest First'),
@@ -370,7 +397,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
       child: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.white : AppTheme.zinc500,
+          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).textTheme.labelSmall?.color,
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),
@@ -378,24 +405,22 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     );
   }
 
-  Widget _buildSectionSubHeader(String title, {Color color = AppTheme.zinc700}) {
+  Widget _buildSectionSubHeader(String title, {Color? color}) {
+    final activeColor = color ?? Theme.of(context).textTheme.labelSmall?.color ?? AppTheme.zinc700;
     return Row(
       children: [
-        Container(width: 2, height: 10, decoration: BoxDecoration(color: color)),
+        Container(width: 2, height: 10, decoration: BoxDecoration(color: activeColor)),
         const SizedBox(width: 8),
-        Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, letterSpacing: 1.5)),
+        Text(title, style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: activeColor, letterSpacing: 1.5)),
       ],
     );
   }
 
-  Widget _buildChallengeItem(Challenge challenge) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: ChallengeCard(challenge: challenge),
-    );
-  }
-
   Widget _buildActionsTab() {
+    final primaryColor = Theme.of(context).primaryColor;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.padding * 1.5),
       child: Column(
@@ -405,8 +430,8 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
               'Challenge',
               'Send a new challenge to your friend.',
               LucideIcons.plus,
-              AppTheme.white,
-              AppTheme.black,
+              primaryColor,
+              bgColor,
               () => Navigator.push(context, MaterialPageRoute(builder: (_) => CreateChallengeScreen(recipient: widget.friend))),
             ),
             const SizedBox(height: 16),
@@ -414,24 +439,24 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
               'Truth',
               'Spend 50 points to ask a question.',
               LucideIcons.helpCircle,
-              AppTheme.zinc900,
-              AppTheme.white,
+              isDark ? AppTheme.zinc900 : AppTheme.zinc100,
+              primaryColor,
               () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(
                 recipient: widget.friend.copyWith(relationshipPoints: _relationshipPoints)
               ))),
-              borderColor: AppTheme.zinc800,
+              borderColor: isDark ? AppTheme.zinc800 : AppTheme.zinc200,
             ),
             const SizedBox(height: 16),
             _buildActionCard(
               'Dare',
               'Spend 100 points to assign a task.',
               LucideIcons.zap,
-              AppTheme.zinc900,
-              AppTheme.white,
+              isDark ? AppTheme.zinc900 : AppTheme.zinc100,
+              primaryColor,
               () => Navigator.push(context, MaterialPageRoute(builder: (_) => TruthDareScreen(
                 recipient: widget.friend.copyWith(relationshipPoints: _relationshipPoints)
               ))),
-              borderColor: AppTheme.zinc800,
+              borderColor: isDark ? AppTheme.zinc800 : AppTheme.zinc200,
             ),
           ] else
             _buildRelationshipButton(),
@@ -479,38 +504,52 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   }
 
   Widget _buildRelationshipButton() {
+    final primaryColor = Theme.of(context).primaryColor;
+    final bgColor = Theme.of(context).scaffoldBackgroundColor;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     String text = 'Add Friend';
     IconData icon = LucideIcons.userPlus;
-    Color bg = AppTheme.white;
-    Color fg = AppTheme.black;
+    Color bg = primaryColor;
+    Color fg = bgColor;
 
     if (_relationshipStatus == 'PENDING_SENT') {
       text = 'Request Sent';
       icon = LucideIcons.clock;
-      bg = AppTheme.zinc900;
-      fg = AppTheme.white;
+      bg = isDark ? AppTheme.zinc900 : AppTheme.zinc100;
+      fg = primaryColor;
     } else if (_relationshipStatus == 'PENDING_RECEIVED') {
       text = 'Accept Request';
       icon = LucideIcons.check;
-      bg = AppTheme.white;
-      fg = AppTheme.black;
+      bg = primaryColor;
+      fg = bgColor;
+    } else if (_relationshipStatus == 'FRIENDS') {
+      text = 'Friends';
+      icon = LucideIcons.users;
+      bg = isDark ? AppTheme.zinc900 : AppTheme.zinc100;
+      fg = primaryColor;
     }
 
-    return CustomButton(
-      text: text,
-      isLoading: _isActionLoading,
-      onPressed: _handleFriendAction,
-      backgroundColor: bg,
-      textColor: fg,
-      icon: Icon(icon, size: 20),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: CustomButton(
+        text: text,
+        isLoading: _isActionLoading,
+        onPressed: _relationshipStatus == 'FRIENDS' ? null : _handleFriendAction,
+        backgroundColor: bg,
+        textColor: fg,
+        icon: Icon(icon, size: 20, color: fg),
+      ),
     );
   }
 }
 
 class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
-  _SliverAppBarDelegate(this._tabBar);
+  _SliverAppBarDelegate(this._tabBar, this.backgroundColor);
 
   final TabBar _tabBar;
+  final Color backgroundColor;
 
   @override
   double get minExtent => _tabBar.preferredSize.height;
@@ -520,13 +559,13 @@ class _SliverAppBarDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
     return Container(
-      color: AppTheme.black,
+      color: backgroundColor,
       child: _tabBar,
     );
   }
 
   @override
   bool shouldRebuild(_SliverAppBarDelegate oldDelegate) {
-    return false;
+    return backgroundColor != oldDelegate.backgroundColor;
   }
 }

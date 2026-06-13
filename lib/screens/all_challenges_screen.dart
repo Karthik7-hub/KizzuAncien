@@ -8,6 +8,11 @@ import '../widgets/challenge_card.dart';
 import '../widgets/challenge_filter_dropdown.dart';
 import '../models/challenge.dart';
 
+import '../widgets/app_header.dart';
+import '../widgets/empty_state.dart';
+
+import '../widgets/unified_search_field.dart';
+
 class AllChallengesScreen extends StatefulWidget {
   const AllChallengesScreen({super.key});
 
@@ -15,17 +20,23 @@ class AllChallengesScreen extends StatefulWidget {
   State<AllChallengesScreen> createState() => _AllChallengesScreenState();
 }
 
-class _AllChallengesScreenState extends State<AllChallengesScreen> {
+class _AllChallengesScreenState extends State<AllChallengesScreen> with AutomaticKeepAliveClientMixin {
   ChallengeCategory _selectedCategory = ChallengeCategory.all;
   String _searchQuery = '';
   String _sortBy = 'newest';
   final TextEditingController _searchController = TextEditingController();
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChallengeProvider>().fetchChallenges();
+      final challengeProvider = context.read<ChallengeProvider>();
+      if (challengeProvider.challenges.isEmpty) {
+        challengeProvider.fetchChallenges();
+      }
     });
   }
 
@@ -37,6 +48,7 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final challengeProvider = context.watch<ChallengeProvider>();
     final user = context.watch<AuthProvider>().user;
 
@@ -62,37 +74,31 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
     }
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: AppHeader(
+        title: 'Challenges',
+        centerTitle: false,
+        actions: [
+          ChallengeFilterDropdown(
+            selectedCategory: _selectedCategory,
+            onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Row(
               children: [
                 Expanded(
-                  child: TextField(
+                  child: UnifiedSearchField(
                     controller: _searchController,
+                    hintText: 'Search challenges...',
                     onChanged: (val) => setState(() => _searchQuery = val),
-                    style: const TextStyle(color: AppTheme.white),
-                    decoration: InputDecoration(
-                      hintText: 'Search challenges...',
-                      hintStyle: const TextStyle(color: AppTheme.zinc600),
-                      prefixIcon: const Icon(LucideIcons.search, color: AppTheme.zinc500, size: 20),
-                      filled: true,
-                      fillColor: AppTheme.zinc900,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                ChallengeFilterDropdown(
-                  selectedCategory: _selectedCategory,
-                  onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
-                ),
-                const SizedBox(width: 8),
                 _buildSortMenu(),
               ],
             ),
@@ -100,12 +106,16 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
           Expanded(
             child: RefreshIndicator(
               onRefresh: () => challengeProvider.fetchChallenges(),
-              color: AppTheme.white,
-              backgroundColor: AppTheme.zinc900,
+              color: Theme.of(context).primaryColor,
+              backgroundColor: Theme.of(context).cardTheme.color,
               child: filtered.isEmpty && !challengeProvider.isLoading
-                  ? _buildEmptyState()
+                  ? const EmptyState(
+                      icon: LucideIcons.layoutList,
+                      title: 'No challenges found',
+                      isScrollable: true,
+                    )
                   : ListView.builder(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         return Padding(
@@ -121,41 +131,34 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
-    return const Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(LucideIcons.layoutList, size: 48, color: AppTheme.zinc800),
-          SizedBox(height: 16),
-          Text('No challenges found', style: TextStyle(color: AppTheme.zinc600)),
-        ],
-      ),
-    );
-  }
-
   Widget _buildSortMenu() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopupMenuButton<String>(
-      icon: const Icon(LucideIcons.listFilter, size: 20, color: AppTheme.zinc600),
-      color: AppTheme.zinc950,
+      icon: Icon(LucideIcons.listFilter, size: 20, color: isDark ? AppTheme.zinc600 : AppTheme.zinc500),
+      color: isDark ? AppTheme.zinc950 : AppTheme.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+      ),
       onSelected: (value) => setState(() => _sortBy = value),
       itemBuilder: (context) => [
-        _buildSortItem('newest', 'Newest First'),
-        _buildSortItem('oldest', 'Oldest First'),
-        _buildSortItem('updated', 'Recently Updated'),
-        _buildSortItem('alphabetical', 'Alphabetical'),
+        _buildSortItem(context, 'newest', 'Newest First'),
+        _buildSortItem(context, 'oldest', 'Oldest First'),
+        _buildSortItem(context, 'updated', 'Recently Updated'),
+        _buildSortItem(context, 'alphabetical', 'Alphabetical'),
       ],
     );
   }
 
-  PopupMenuItem<String> _buildSortItem(String value, String label) {
+  PopupMenuItem<String> _buildSortItem(BuildContext context, String value, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _sortBy == value;
     return PopupMenuItem(
       value: value,
       child: Text(
         label,
         style: TextStyle(
-          color: isSelected ? AppTheme.white : AppTheme.zinc500,
+          color: isSelected ? (isDark ? AppTheme.white : AppTheme.zinc950) : (isDark ? AppTheme.zinc500 : AppTheme.zinc600),
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),

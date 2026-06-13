@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
+import '../widgets/app_header.dart';
 import 'main_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -22,8 +23,40 @@ class _SignUpScreenState extends State<SignUpScreen> {
   String _gender = 'male';
   bool _isLoading = false;
 
+  bool get _canSubmit {
+    return _nameController.text.trim().isNotEmpty &&
+           _usernameController.text.trim().length >= 3 &&
+           _emailController.text.trim().isNotEmpty &&
+           RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim()) &&
+           _passwordController.text.trim().length >= 6;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController.addListener(_updateState);
+    _usernameController.addListener(_updateState);
+    _emailController.addListener(_updateState);
+    _passwordController.addListener(_updateState);
+  }
+
+  @override
+  void dispose() {
+    _nameController.removeListener(_updateState);
+    _usernameController.removeListener(_updateState);
+    _emailController.removeListener(_updateState);
+    _passwordController.removeListener(_updateState);
+    _nameController.dispose();
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _updateState() => setState(() {});
+
   void _handleSignUp() async {
-    if (_isLoading) return;
+    if (_isLoading || !_canSubmit) return;
     setState(() => _isLoading = true);
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -61,15 +94,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final primaryColor = Theme.of(context).primaryColor;
+
     return Scaffold(
-      backgroundColor: AppTheme.black,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+      appBar: const AppHeader(
+        title: '',
+        showBackButton: true,
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -77,19 +107,19 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 'Join KizzuAncien.',
                 style: TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.white,
+                  color: primaryColor,
                   letterSpacing: -1,
                 ),
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'The elite social challenge platform.',
-                style: TextStyle(color: AppTheme.zinc500, fontSize: 16),
+                style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 16),
               ),
               const SizedBox(height: 32),
               CustomTextField(
@@ -114,9 +144,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 obscureText: true,
               ),
               const SizedBox(height: 24),
-              const Text(
+              Text(
                 'SELECT GENDER',
-                style: TextStyle(color: AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.5),
               ),
               const SizedBox(height: 12),
               Row(
@@ -133,10 +163,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
               const SizedBox(height: 32),
               CustomButton(
                 text: 'Create Account',
-                onPressed: _isLoading ? null : _handleSignUp,
-                backgroundColor: AppTheme.white,
-                textColor: AppTheme.black,
-                icon: const Icon(LucideIcons.userPlus, size: 20),
+                onPressed: (_isLoading || !_canSubmit) ? null : _handleSignUp,
+                backgroundColor: primaryColor,
+                textColor: Theme.of(context).scaffoldBackgroundColor,
+                icon: Icon(LucideIcons.userPlus, size: 20, color: Theme.of(context).scaffoldBackgroundColor),
                 isLoading: _isLoading,
               ),
               const SizedBox(height: 32),
@@ -144,14 +174,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 child: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
                   child: RichText(
-                    text: const TextSpan(
+                    text: TextSpan(
                       text: "Already a member? ",
-                      style: TextStyle(color: AppTheme.zinc600, fontSize: 14),
+                      style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 14),
                       children: [
                         TextSpan(
                           text: 'Log in',
                           style: TextStyle(
-                            color: AppTheme.white,
+                            color: primaryColor,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
@@ -170,21 +200,22 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
   Widget _buildGenderOption(String value, IconData icon) {
     final isSelected = _gender == value;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: () => setState(() => _gender = value),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: isSelected ? AppTheme.white : AppTheme.zinc900,
+          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: isSelected ? AppTheme.white : AppTheme.zinc800),
+          border: Border.all(color: isSelected ? Theme.of(context).primaryColor : (isDark ? AppTheme.zinc800 : AppTheme.zinc200)),
         ),
         child: Column(
           children: [
             Icon(
               icon,
-              color: isSelected ? AppTheme.black : AppTheme.zinc500,
+              color: isSelected ? Theme.of(context).scaffoldBackgroundColor : Theme.of(context).textTheme.labelSmall?.color,
               size: 24,
             ),
             const SizedBox(height: 8),
@@ -193,7 +224,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: isSelected ? AppTheme.black : AppTheme.zinc500,
+                color: isSelected ? Theme.of(context).scaffoldBackgroundColor : Theme.of(context).textTheme.labelSmall?.color,
                 letterSpacing: 1,
               ),
             ),

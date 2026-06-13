@@ -20,9 +20,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   String _gender = 'male';
   bool _isLoading = false;
 
+  bool get _canSubmit => _usernameController.text.trim().length >= 3;
+
   @override
   void initState() {
     super.initState();
+    _usernameController.addListener(_updateState);
     // Auto-generate a suggestion
     final email = widget.googleData['email'] as String? ?? '';
     if (email.contains('@')) {
@@ -30,9 +33,17 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _usernameController.removeListener(_updateState);
+    _usernameController.dispose();
+    super.dispose();
+  }
+
+  void _updateState() => setState(() {});
+
   void _handleComplete() async {
-    if (_isLoading) return;
-    if (_usernameController.text.trim().isEmpty) return;
+    if (_isLoading || !_canSubmit) return;
 
     setState(() => _isLoading = true);
     final authProvider = context.read<AuthProvider>();
@@ -106,7 +117,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               const SizedBox(height: 48),
               CustomButton(
                 text: 'Complete Profile',
-                onPressed: _isLoading ? null : _handleComplete,
+                onPressed: (_isLoading || !_canSubmit) ? null : _handleComplete,
                 backgroundColor: AppTheme.white,
                 textColor: AppTheme.black,
                 icon: const Icon(LucideIcons.check, size: 20),

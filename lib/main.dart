@@ -14,6 +14,8 @@ import 'package:kizzu_ancien/services/notification_service.dart';
 import 'package:kizzu_ancien/utils/logger.dart';
 import 'firebase_options.dart';
 
+import 'package:kizzu_ancien/providers/theme_provider.dart';
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   try {
@@ -35,6 +37,7 @@ void main() {
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ChallengeProvider()),
         ChangeNotifierProvider(create: (_) => FriendProvider()),
@@ -55,38 +58,34 @@ class KizzuAncienApp extends StatefulWidget {
 }
 
 class _KizzuAncienAppState extends State<KizzuAncienApp> {
-  bool _isInitialized = false;
-
   @override
   void initState() {
     super.initState();
+    // Initialize services in the background without blocking the first frame
     _initApp();
   }
 
   Future<void> _initApp() async {
     try {
-      // Initialize Firebase in the background
       await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
       FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-      NotificationService.init();
+      await NotificationService.init();
     } catch (e) {
-      AppLogger.error('Initialization error', e);
-    } finally {
-      setState(() {
-        _isInitialized = true;
-      });
+      AppLogger.error('Startup initialization failed', e);
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    
     return MaterialApp(
       title: 'KizzuAncien',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
-      // SplashScreen is always shown first and handles its own logic.
-      // It will wait for _isInitialized if necessary via its internal logic.
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.themeMode,
       home: const SplashScreen(),
     );
   }

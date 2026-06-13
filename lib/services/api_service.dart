@@ -33,21 +33,22 @@ class ApiService {
       },
       onError: (DioException e, handler) async {
         if (e.response?.statusCode == 401) {
+          final requestOptions = e.requestOptions;
           if (_isRefreshing) {
             // Queue the request until refresh is complete
             _refreshQueue.add((String? newToken) async {
               if (newToken != null) {
-                e.requestOptions.headers['Authorization'] = 'Bearer $newToken';
+                requestOptions.headers['Authorization'] = 'Bearer $newToken';
                 final opts = Options(
-                  method: e.requestOptions.method,
-                  headers: e.requestOptions.headers,
+                  method: requestOptions.method,
+                  headers: requestOptions.headers,
                 );
                 try {
                   final cloneReq = await dio.request(
-                    e.requestOptions.path,
+                    requestOptions.path,
                     options: opts,
-                    data: e.requestOptions.data,
-                    queryParameters: e.requestOptions.queryParameters,
+                    data: requestOptions.data,
+                    queryParameters: requestOptions.queryParameters,
                   );
                   handler.resolve(cloneReq);
                 } catch (err) {
@@ -65,7 +66,10 @@ class ApiService {
           
           if (refreshToken != null) {
             try {
-              final refreshResponse = await Dio().post(
+              // Create a fresh Dio instance for the refresh call to avoid 
+              // the global interceptor's possible infinite loops/queue issues.
+              final refreshDio = Dio();
+              final refreshResponse = await refreshDio.post(
                 '${AppConstants.apiBaseUrl}/auth/refresh-token',
                 data: {'token': refreshToken}
               );
@@ -79,31 +83,33 @@ class ApiService {
               _isRefreshing = false;
               
               // Process queue
-              for (var callback in _refreshQueue) {
+              final callbacks = List<void Function(String?)>.from(_refreshQueue);
+              _refreshQueue.clear();
+              for (var callback in callbacks) {
                 callback(newAccessToken);
               }
-              _refreshQueue.clear();
 
               // Retry original request
-              e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
               final opts = Options(
-                method: e.requestOptions.method,
-                headers: e.requestOptions.headers,
+                method: requestOptions.method,
+                headers: requestOptions.headers,
               );
               final cloneReq = await dio.request(
-                e.requestOptions.path,
+                requestOptions.path,
                 options: opts,
-                data: e.requestOptions.data,
-                queryParameters: e.requestOptions.queryParameters,
+                data: requestOptions.data,
+                queryParameters: requestOptions.queryParameters,
               );
               return handler.resolve(cloneReq);
             } catch (err) {
               _isRefreshing = false;
               await storage.deleteAll();
-              for (var callback in _refreshQueue) {
+              final callbacks = List<void Function(String?)>.from(_refreshQueue);
+              _refreshQueue.clear();
+              for (var callback in callbacks) {
                 callback(null);
               }
-              _refreshQueue.clear();
               return handler.next(e);
             }
           }

@@ -16,55 +16,65 @@ class ChallengeFilterDropdown extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return PopupMenuButton<ChallengeCategory>(
       initialValue: selectedCategory,
       onSelected: onCategoryChanged,
-      color: AppTheme.zinc950,
+      color: isDark ? AppTheme.zinc950 : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12), 
-        side: const BorderSide(color: AppTheme.zinc900),
+        side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
       ),
       itemBuilder: (context) => [
-        _buildItem(ChallengeCategory.all, 'All Challenges', LucideIcons.layers),
-        _buildItem(ChallengeCategory.received, 'Received', LucideIcons.arrowDownLeft),
-        _buildItem(ChallengeCategory.sent, 'Sent', LucideIcons.arrowUpRight),
+        _buildItem(context, ChallengeCategory.all, 'All Challenges', LucideIcons.layers),
+        _buildItem(context, ChallengeCategory.received, 'Received', LucideIcons.arrowDownLeft),
+        _buildItem(context, ChallengeCategory.sent, 'Sent', LucideIcons.arrowUpRight),
       ],
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: AppTheme.zinc900.withValues(alpha: 0.5),
+          color: isDark ? AppTheme.zinc900.withValues(alpha: 0.5) : AppTheme.zinc100,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.zinc800),
+          border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(_getIcon(selectedCategory), size: 14, color: AppTheme.zinc400),
+            Icon(_getIcon(selectedCategory), size: 14, color: isDark ? AppTheme.zinc400 : AppTheme.zinc500),
             const SizedBox(width: 8),
             Text(
               _getLabel(selectedCategory),
-              style: const TextStyle(color: AppTheme.white, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: isDark ? AppTheme.white : AppTheme.zinc950,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(width: 4),
-            const Icon(LucideIcons.chevronDown, size: 14, color: AppTheme.zinc600),
+            Icon(LucideIcons.chevronDown, size: 14, color: isDark ? AppTheme.zinc600 : AppTheme.zinc400),
           ],
         ),
       ),
     );
   }
 
-  PopupMenuItem<ChallengeCategory> _buildItem(ChallengeCategory value, String label, IconData icon) {
+  PopupMenuItem<ChallengeCategory> _buildItem(BuildContext context, ChallengeCategory value, String label, IconData icon) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = selectedCategory == value;
+    final Color activeColor = isDark ? AppTheme.white : AppTheme.zinc950;
+    final Color inactiveColor = isDark ? AppTheme.zinc500 : AppTheme.zinc400;
+    final Color inactiveTextColor = isDark ? AppTheme.zinc400 : AppTheme.zinc600;
+
     return PopupMenuItem(
       value: value,
       child: Row(
         children: [
-          Icon(icon, size: 16, color: isSelected ? AppTheme.white : AppTheme.zinc500),
+          Icon(icon, size: 16, color: isSelected ? activeColor : inactiveColor),
           const SizedBox(width: 12),
           Text(
             label,
             style: TextStyle(
-              color: isSelected ? AppTheme.white : AppTheme.zinc400,
+              color: isSelected ? activeColor : inactiveTextColor,
               fontSize: 13,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
             ),

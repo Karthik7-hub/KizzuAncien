@@ -13,6 +13,7 @@ class User {
   final int? longestSharedStreak;
   final DateTime? lastStreakUpdate;
   final DateTime? lastChallengeCompletedAt;
+  final UserPreferences preferences;
 
   User({
     required this.id,
@@ -29,6 +30,7 @@ class User {
     this.longestSharedStreak,
     this.lastStreakUpdate,
     this.lastChallengeCompletedAt,
+    required this.preferences,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,13 @@ class User {
       longestSharedStreak: json['longestSharedStreak'],
       lastStreakUpdate: json['lastStreakUpdate'] != null ? DateTime.parse(json['lastStreakUpdate']) : null,
       lastChallengeCompletedAt: json['lastChallengeCompletedAt'] != null ? DateTime.parse(json['lastChallengeCompletedAt']) : null,
+      preferences: json['preferences'] != null 
+          ? UserPreferences.fromJson(json['preferences']) 
+          : UserPreferences(
+              notifications: NotificationPreferences(challenges: true, friendRequests: true, approvals: true, streaks: true),
+              privacy: PrivacyPreferences(allowFriendRequests: true, allowChallengeRequests: true, profileVisibility: 'friends'),
+              appearance: AppearancePreferences(theme: 'dark'),
+            ),
     );
   }
 
@@ -65,6 +74,7 @@ class User {
     int? longestSharedStreak,
     DateTime? lastStreakUpdate,
     DateTime? lastChallengeCompletedAt,
+    UserPreferences? preferences,
   }) {
     return User(
       id: id ?? this.id,
@@ -81,6 +91,115 @@ class User {
       longestSharedStreak: longestSharedStreak ?? this.longestSharedStreak,
       lastStreakUpdate: lastStreakUpdate ?? this.lastStreakUpdate,
       lastChallengeCompletedAt: lastChallengeCompletedAt ?? this.lastChallengeCompletedAt,
+      preferences: preferences ?? this.preferences,
     );
+  }
+}
+
+class UserPreferences {
+  final NotificationPreferences notifications;
+  final PrivacyPreferences privacy;
+  final AppearancePreferences appearance;
+
+  UserPreferences({
+    required this.notifications,
+    required this.privacy,
+    required this.appearance,
+  });
+
+  factory UserPreferences.fromJson(Map<String, dynamic> json) {
+    return UserPreferences(
+      notifications: NotificationPreferences.fromJson(json['notifications'] ?? {}),
+      privacy: PrivacyPreferences.fromJson(json['privacy'] ?? {}),
+      appearance: AppearancePreferences.fromJson(json['appearance'] ?? {}),
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'notifications': notifications.toJson(),
+      'privacy': privacy.toJson(),
+      'appearance': appearance.toJson(),
+    };
+  }
+}
+
+class NotificationPreferences {
+  final bool challenges;
+  final bool friendRequests;
+  final bool approvals;
+  final bool streaks;
+
+  NotificationPreferences({
+    required this.challenges,
+    required this.friendRequests,
+    required this.approvals,
+    required this.streaks,
+  });
+
+  factory NotificationPreferences.fromJson(Map<String, dynamic> json) {
+    return NotificationPreferences(
+      challenges: json['challenges'] ?? true,
+      friendRequests: json['friendRequests'] ?? true,
+      approvals: json['approvals'] ?? true,
+      streaks: json['streaks'] ?? true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'challenges': challenges,
+      'friendRequests': friendRequests,
+      'approvals': approvals,
+      'streaks': streaks,
+    };
+  }
+}
+
+class PrivacyPreferences {
+  final bool allowFriendRequests;
+  final bool allowChallengeRequests;
+  final String profileVisibility;
+
+  PrivacyPreferences({
+    required this.allowFriendRequests,
+    required this.allowChallengeRequests,
+    required this.profileVisibility,
+  });
+
+  factory PrivacyPreferences.fromJson(Map<String, dynamic> json) {
+    return PrivacyPreferences(
+      allowFriendRequests: json['allowFriendRequests'] ?? true,
+      allowChallengeRequests: json['allowChallengeRequests'] ?? true,
+      profileVisibility: json['profileVisibility'] ?? 'friends',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'allowFriendRequests': allowFriendRequests,
+      'allowChallengeRequests': allowChallengeRequests,
+      'profileVisibility': profileVisibility,
+    };
+  }
+}
+
+class AppearancePreferences {
+  final String theme;
+
+  AppearancePreferences({
+    required this.theme,
+  });
+
+  factory AppearancePreferences.fromJson(Map<String, dynamic> json) {
+    return AppearancePreferences(
+      theme: json['theme'] ?? 'dark',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'theme': theme,
+    };
   }
 }

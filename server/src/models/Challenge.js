@@ -17,6 +17,7 @@ const challengeSchema = new mongoose.Schema({
     default: 'pending'
   },
   coverImage: { type: String },
+  notes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Note' }],
 }, { timestamps: true });
 
 challengeSchema.index({ creator: 1 });

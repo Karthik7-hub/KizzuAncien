@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
+import 'package:kizzu_ancien/utils/logger.dart';
 import 'package:kizzu_ancien/services/notification_service.dart';
 import 'auth_screen.dart';
 import 'main_screen.dart';
@@ -41,14 +42,17 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   Future<void> _initializeApp() async {
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
     
-    // We start checkAuth and wait for a maximum of 5 seconds
+    // We start checkAuth and wait for a maximum of 10 seconds (handles cold starts)
     final checkAuthFuture = authProvider.checkAuth();
     
-    // Ensure the splash is visible for at least 1 second for a smooth transition
-    final minDisplayTime = Future.delayed(const Duration(milliseconds: 1200));
+    // Fast minimum display time for snappy feel when ready (600ms)
+    final minDisplayTime = Future.delayed(const Duration(milliseconds: 600));
 
     final results = await Future.wait([
-      checkAuthFuture.catchError((e) => AuthStatus.offline),
+      checkAuthFuture.catchError((e) {
+        AppLogger.error('SplashScreen checkAuth error', e);
+        return AuthStatus.offline;
+      }),
       minDisplayTime,
     ]);
 
@@ -78,9 +82,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           pageBuilder: (context, animation, secondaryAnimation) => 
             authStatus == AuthStatus.authenticated ? const MainScreen() : const AuthScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
+            final fade = FadeTransition(opacity: animation, child: child);
+            return Container(color: AppTheme.black, child: fade);
           },
-          transitionDuration: const Duration(milliseconds: 400),
+          transitionDuration: const Duration(milliseconds: 600),
         ),
       );
     }
@@ -98,7 +103,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // The background should be static and match native splash.
     // Only the internal components should animate if needed.
     return Scaffold(
-      backgroundColor: AppTheme.black,
+      backgroundColor: Colors.black, // Always black for professional splash transition
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,

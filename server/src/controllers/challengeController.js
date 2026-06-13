@@ -1,4 +1,6 @@
 const Challenge = require('../models/Challenge');
+const Note = require('../models/Note');
+const Message = require('../models/Message');
 const ChallengeSubmission = require('../models/ChallengeSubmission');
 const User = require('../models/User');
 const Friend = require('../models/Friend');
@@ -51,20 +53,34 @@ exports.getChallenges = async (req, res, next) => {
       $or: [{ creator: req.user._id }, { recipient: req.user._id }]
     })
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
+    .populate({
+      path: 'notes',
+      populate: { path: 'createdBy', select: 'name username profileImageUrl gender avatarType' }
+    })
     .sort('-createdAt');
 
-    // Fetch submissions for these challenges
+    // Fetch submissions and latest messages for these challenges
     const challengeIds = challenges.map(c => c._id);
     const submissions = await ChallengeSubmission.find({
       challenge: { $in: challengeIds }
     });
 
-    // Merge submissions into challenges
+    const latestMessages = await Message.aggregate([
+      { $match: { challenge: { $in: challengeIds } } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } }
+    ]);
+
+    // Merge submissions and messages into challenges
     const results = challenges.map(challenge => {
       const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+      const messageGroup = latestMessages.find(m => m._id.toString() === challenge._id.toString());
+
       return {
         ...challenge.toObject(),
-        submission: submission || null
+        submission: submission || null,
+        latestMessage: messageGroup ? messageGroup.lastMessage : null,
+        unreadCount: 0 // Placeholder for future unread logic
       };
     });
 
@@ -86,20 +102,34 @@ exports.getSharedChallenges = async (req, res, next) => {
       ]
     })
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
+    .populate({
+      path: 'notes',
+      populate: { path: 'createdBy', select: 'name username profileImageUrl gender avatarType' }
+    })
     .sort('-createdAt');
 
-    // Fetch submissions for these challenges
+    // Fetch submissions and latest messages for these challenges
     const challengeIds = challenges.map(c => c._id);
     const submissions = await ChallengeSubmission.find({
       challenge: { $in: challengeIds }
     });
 
-    // Merge submissions into challenges
+    const latestMessages = await Message.aggregate([
+      { $match: { challenge: { $in: challengeIds } } },
+      { $sort: { createdAt: -1 } },
+      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } }
+    ]);
+
+    // Merge submissions and messages into challenges
     const results = challenges.map(challenge => {
       const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+      const messageGroup = latestMessages.find(m => m._id.toString() === challenge._id.toString());
+
       return {
         ...challenge.toObject(),
-        submission: submission || null
+        submission: submission || null,
+        latestMessage: messageGroup ? messageGroup.lastMessage : null,
+        unreadCount: 0
       };
     });
 
@@ -113,7 +143,11 @@ exports.getSubmissionByChallenge = async (req, res, next) => {
   try {
     const submission = await ChallengeSubmission.findOne({ challenge: req.params.challengeId })
       .populate('challenge')
-      .populate('submitter', 'name username profileImageUrl gender avatarType');
+      .populate('submitter', 'name username profileImageUrl gender avatarType')
+      .populate({
+        path: 'selectedNotes',
+        populate: { path: 'createdBy', select: 'name username profileImageUrl gender avatarType' }
+      });
 
     if (!submission) {
       return res.status(404).json({ message: 'Submission not found' });
@@ -133,7 +167,7 @@ exports.getSubmissionByChallenge = async (req, res, next) => {
 
 exports.submitProof = async (req, res, next) => {
   try {
-    const { challengeId, proofText, proofType } = req.body;
+    const { challengeId, proofText, proofType, selectedNotes } = req.body;
     const challenge = await Challenge.findById(challengeId);
 
     if (!challenge || challenge.recipient.toString() !== req.user._id.toString()) {
@@ -151,12 +185,18 @@ exports.submitProof = async (req, res, next) => {
       proofUrl = uploadResult.url;
     }
 
+    let parsedNotes = [];
+    if (selectedNotes) {
+      parsedNotes = typeof selectedNotes === 'string' ? JSON.parse(selectedNotes) : selectedNotes;
+    }
+
     const submission = await ChallengeSubmission.create({
       challenge: challengeId,
       submitter: req.user._id,
       proofUrl,
       proofText,
-      proofType
+      proofType,
+      selectedNotes: parsedNotes
     });
 
     challenge.status = 'submitted';
@@ -326,3 +366,175 @@ async function handleReview(submission, status, req, res) {
 
   res.json({ submission, challenge });
 }
+
+exports.createNote = async (req, res, next) => {
+  try {
+    const { challengeId } = req.params;
+    let { title, description, type, content } = req.body;
+
+    // Parse content if it is received as a string (from FormData)
+    if (typeof content === 'string') {
+      content = JSON.parse(content);
+    }
+
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found' });
+    }
+
+    // Authorization: Only creator or recipient can add notes
+    if (challenge.creator.toString() !== req.user._id.toString() &&
+        challenge.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to add notes to this challenge' });
+    }
+
+    // Handle files upload
+    if (req.files && req.files.length > 0) {
+      const imageUrls = [];
+      for (const file of req.files) {
+        const uploadResult = await uploadImage(file.buffer, file.originalname);
+        imageUrls.push(uploadResult.url);
+      }
+      if (!content) {
+        content = {};
+      }
+      content.images = imageUrls;
+    }
+
+    const note = await Note.create({
+      challenge: challengeId,
+      createdBy: req.user._id,
+      title,
+      description,
+      type,
+      content,
+      order: req.body.order || 0
+    });
+
+    challenge.notes.push(note._id);
+    await challenge.save();
+
+    const populatedNote = await Note.findById(note._id).populate('createdBy', 'name username profileImageUrl gender avatarType');
+
+    res.status(201).json(populatedNote);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getNotes = async (req, res, next) => {
+  try {
+    const { challengeId } = req.params;
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found' });
+    }
+
+    // Security check: Only creator or recipient can view notes
+    if (challenge.creator.toString() !== req.user._id.toString() &&
+        challenge.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to view notes for this challenge' });
+    }
+
+    const notes = await Note.find({ challenge: challengeId })
+      .populate('createdBy', 'name username profileImageUrl gender avatarType')
+      .sort('order createdAt');
+
+    res.json(notes);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.reorderNotes = async (req, res, next) => {
+  try {
+    const { challengeId } = req.params;
+    const { noteOrders } = req.body; // Array of { id, order }
+
+    const challenge = await Challenge.findById(challengeId);
+    if (!challenge) {
+      return res.status(404).json({ message: 'Challenge not found' });
+    }
+
+    if (challenge.creator.toString() !== req.user._id.toString() &&
+        challenge.recipient.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+
+    const updatePromises = noteOrders.map(no =>
+      Note.findByIdAndUpdate(no.id, { order: no.order })
+    );
+
+    await Promise.all(updatePromises);
+    res.json({ message: 'Notes reordered successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateNote = async (req, res, next) => {
+  try {
+    const { challengeId, noteId } = req.params;
+    const { title, description } = req.body;
+    let { content } = req.body;
+
+    if (typeof content === 'string') {
+      content = JSON.parse(content);
+    }
+
+    const note = await Note.findById(noteId);
+    if (!note) {
+      return res.status(404).json({ message: 'Note not found' });
+    }
+
+    if (note.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to edit this note' });
+    }
+
+    if (req.files && req.files.length > 0) {
+      const imageUrls = [];
+      for (const file of req.files) {
+        const uploadResult = await uploadImage(file.buffer, file.originalname);
+        imageUrls.push(uploadResult.url);
+      }
+      if (!content) {
+        content = {};
+      }
+      content.images = [...(content.images || []), ...imageUrls];
+    }
+
+    note.title = title !== undefined ? title : note.title;
+    note.description = description !== undefined ? description : note.description;
+    note.content = content !== undefined ? content : note.content;
+    await note.save();
+
+    const populatedNote = await Note.findById(note._id).populate('createdBy', 'name username profileImageUrl gender avatarType');
+    res.json(populatedNote);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteNote = async (req, res, next) => {
+  try {
+    const { challengeId, noteId } = req.params;
+    const note = await Note.findById(noteId);
+    if (!note) {
+      return res.status(404).json({ message: 'Note not found' });
+    }
+
+    if (note.createdBy.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Not authorized to delete this note' });
+    }
+
+    await Note.findByIdAndDelete(noteId);
+
+    await Challenge.findByIdAndUpdate(challengeId, {
+      $pull: { notes: noteId }
+    });
+
+    res.json({ message: 'Note deleted successfully' });
+  } catch (error) {
+    next(error);
+  }
+};

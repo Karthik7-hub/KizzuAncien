@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -13,9 +12,16 @@ import 'package:kizzu_ancien/providers/friend_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/screens/notifications_screen.dart';
 import 'package:kizzu_ancien/screens/challenge_details_screen.dart';
-import 'package:kizzu_ancien/screens/friends_screen.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
-import '../widgets/avatar_widget.dart';
+import 'package:kizzu_ancien/models/user.dart';
+import '../widgets/section_header.dart';
+
+import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/app_header.dart';
+
+import '../widgets/app_card.dart';
+
+import '../widgets/unified_user_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -48,24 +54,27 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final user = context.watch<AuthProvider>().user;
-    final stats = context.watch<AuthProvider>().stats;
-    final challengeProvider = context.watch<ChallengeProvider>();
-    final notificationProvider = context.watch<NotificationProvider>();
+    final user = context.select<AuthProvider, User?>((p) => p.user);
+    final stats = context.select<AuthProvider, Map<String, dynamic>>((p) => p.stats);
+    final challenges = context.select<ChallengeProvider, List<Challenge>>((p) => p.challenges);
+    final notifications = context.select<NotificationProvider, List<dynamic>>((p) => p.notifications);
     
     if (user == null) {
-      return const Scaffold(
-        backgroundColor: AppTheme.black,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.white : AppTheme.black, strokeWidth: 2)),
       );
     }
 
+    final hasUnread = notifications.any((n) => !n.read);
+
     final today = DateTime.now();
-    final activeChallenges = challengeProvider.challenges
+    final activeChallenges = challenges
         .where((c) => c.recipient.id == user.id && c.status == 'pending')
         .toList();
     
-    final completedToday = challengeProvider.challenges
+    final completedToday = challenges
         .where((c) => c.recipient.id == user.id && 
                       c.status == 'approved' && 
                       c.updatedAt.day == today.day &&
@@ -73,19 +82,63 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                       c.updatedAt.year == today.year)
         .length;
 
-    final recentFriendActivity = challengeProvider.challenges
+    final recentFriendActivity = challenges
         .where((c) => c.recipient.id != user.id && c.status != 'pending')
         .take(5)
         .toList();
 
-    final recentNotifications = notificationProvider.notifications.take(3).toList();
+    final recentNotifications = notifications.take(3).toList();
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
+      appBar: AppHeader(
+        title: 'KizzuAncien',
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SvgPicture.asset(
+                'assets/logo.svg',
+                width: 28,
+                height: 28,
+              ),
+            ),
+          ),
+        ),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: Icon(LucideIcons.bell, color: Theme.of(context).primaryColor, size: 22),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  );
+                },
+              ),
+              if (hasUnread)
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ],
+      ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        color: AppTheme.white,
-        backgroundColor: AppTheme.zinc950,
+        color: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).cardTheme.color,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
@@ -122,7 +175,14 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                         _buildSectionHeader('NOTIFICATIONS'),
                         GestureDetector(
                           onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
-                          child: const Text('View All', style: TextStyle(color: AppTheme.zinc600, fontSize: 12, fontWeight: FontWeight.bold)),
+                          child: Text(
+                            'View All', 
+                            style: TextStyle(
+                              color: Theme.of(context).textTheme.labelSmall?.color, 
+                              fontSize: 12, 
+                              fontWeight: FontWeight.bold
+                            )
+                          ),
                         ),
                       ],
                     ),
@@ -141,20 +201,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildHeroCard(Map<String, dynamic> stats, int completed, int remaining) {
-    return Container(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AppCard(
       padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: AppTheme.zinc950,
-        borderRadius: BorderRadius.circular(32),
-        border: Border.all(color: AppTheme.zinc900),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.white.withValues(alpha: 0.03),
-            blurRadius: 40,
-            offset: const Offset(0, 20),
-          ),
-        ],
-      ),
+      boxShadow: [
+        BoxShadow(
+          color: (isDark ? AppTheme.white : AppTheme.black).withValues(alpha: 0.03),
+          blurRadius: 40,
+          offset: const Offset(0, 20),
+        ),
+      ],
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -164,16 +220,39 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('CURRENT STREAK', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5)),
+                  Text(
+                    'CURRENT STREAK', 
+                    style: TextStyle(
+                      fontSize: 10, 
+                      fontWeight: FontWeight.bold, 
+                      color: Theme.of(context).textTheme.labelSmall?.color, 
+                      letterSpacing: 1.5
+                    )
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('${stats['streak'] ?? 0}', style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppTheme.white, height: 1)),
+                      Text(
+                        '${stats['streak'] ?? 0}', 
+                        style: TextStyle(
+                          fontSize: 48, 
+                          fontWeight: FontWeight.bold, 
+                          color: Theme.of(context).primaryColor, 
+                          height: 1
+                        )
+                      ),
                       const SizedBox(width: 8),
-                      const Padding(
-                        padding: EdgeInsets.only(bottom: 8.0),
-                        child: Text('DAYS', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppTheme.zinc500)),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'DAYS', 
+                          style: TextStyle(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.bold, 
+                            color: Theme.of(context).textTheme.labelLarge?.color
+                          )
+                        ),
                       ),
                     ],
                   ),
@@ -181,13 +260,16 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
               ),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: AppTheme.zinc900, borderRadius: BorderRadius.circular(16)),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.zinc900 : AppTheme.zinc100, 
+                  borderRadius: BorderRadius.circular(16)
+                ),
                 child: const Icon(LucideIcons.zap, color: Colors.amber, size: 32),
               ),
             ],
           ),
           const SizedBox(height: 32),
-          Container(height: 1, color: AppTheme.zinc900),
+          Container(height: 1, color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
           const SizedBox(height: 24),
           Row(
             children: [
@@ -205,62 +287,86 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.white)),
+        Text(
+          value, 
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).primaryColor
+          )
+        ),
         const SizedBox(height: 4),
-        Text(label, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 0.5)),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 9, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).textTheme.labelSmall?.color, 
+            letterSpacing: 0.5
+          )
+        ),
       ],
     );
   }
 
   Widget _buildSectionHeader(String title) {
-    return Text(
-      title,
-      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.zinc500, letterSpacing: 1.5),
-    );
+    return SectionHeader(title: title);
   }
 
   Widget _buildTodayChallengeCard(Challenge challenge) {
-    return GestureDetector(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      color: isDark ? AppTheme.zinc900.withValues(alpha: 0.4) : AppTheme.zinc50,
       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppTheme.zinc900.withValues(alpha: 0.4),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: AppTheme.zinc800),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (challenge.coverImage != null)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: CachedNetworkImage(
-                  imageUrl: challenge.coverImage!,
-                  height: 140,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (challenge.coverImage != null)
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: CachedNetworkImage(
+                imageUrl: challenge.coverImage!,
+                height: 140,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      challenge.title, 
+                      style: TextStyle(
+                        fontSize: 18, 
+                        fontWeight: FontWeight.bold, 
+                        color: Theme.of(context).primaryColor
+                      )
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Due ${DateFormat('h:mm a').format(challenge.deadline)}', 
+                      style: TextStyle(
+                        fontSize: 12, 
+                        color: Theme.of(context).textTheme.labelLarge?.color
+                      )
+                    ),
+                  ],
                 ),
               ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(challenge.title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.white)),
-                      const SizedBox(height: 4),
-                      Text('Due ${DateFormat('h:mm a').format(challenge.deadline)}', style: const TextStyle(fontSize: 12, color: AppTheme.zinc500)),
-                    ],
-                  ),
-                ),
-                const Icon(LucideIcons.chevronRight, color: AppTheme.zinc700, size: 18),
-              ],
-            ),
-          ],
-        ),
+              Icon(
+                LucideIcons.chevronRight, 
+                color: Theme.of(context).textTheme.labelSmall?.color, 
+                size: 18
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -277,21 +383,29 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
   }
 
   Widget _buildActionBtn(IconData icon, String label, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         width: (MediaQuery.of(context).size.width - 64) / 3,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: AppTheme.zinc950,
+          color: Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AppTheme.zinc900),
+          border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
         ),
         child: Column(
           children: [
-            Icon(icon, color: AppTheme.white, size: 20),
+            Icon(icon, color: Theme.of(context).primaryColor, size: 20),
             const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.zinc400)),
+            Text(
+              label, 
+              style: TextStyle(
+                fontSize: 11, 
+                fontWeight: FontWeight.bold, 
+                color: Theme.of(context).textTheme.bodyMedium?.color
+              )
+            ),
           ],
         ),
       ),
@@ -303,46 +417,49 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     if (challenge.status == 'submitted') action = 'submitted proof';
     if (challenge.status == 'rejected') action = 'had a challenge declined';
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          AvatarWidget(user: challenge.recipient, size: 36, showBorder: false),
-          const SizedBox(width: 12),
-          Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(color: AppTheme.zinc500, fontSize: 13),
-                children: [
-                  TextSpan(text: challenge.recipient.name, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.white)),
-                  TextSpan(text: ' $action'),
-                ],
-              ),
-            ),
-          ),
-          Text(timeago.format(challenge.updatedAt), style: const TextStyle(color: AppTheme.zinc800, fontSize: 10)),
-        ],
+    return UnifiedUserTile(
+      user: challenge.recipient,
+      variant: UserTileVariant.activity,
+      subtitle: action,
+      trailing: Text(
+        timeago.format(challenge.updatedAt), 
+        style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 10)
+      ),
+      onTap: () => Navigator.push(
+        context, 
+        MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))
       ),
     );
   }
 
   Widget _buildNotificationPreviewItem(dynamic notification) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppTheme.zinc950,
+        color: Theme.of(context).cardTheme.color,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppTheme.zinc900),
+        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
       ),
       child: Row(
         children: [
-          Container(width: 4, height: 4, decoration: const BoxDecoration(color: AppTheme.white, shape: BoxShape.circle)),
+          Container(
+            width: 4, 
+            height: 4, 
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor, 
+              shape: BoxShape.circle
+            )
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               notification.message,
-              style: const TextStyle(color: AppTheme.zinc400, fontSize: 12),
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color, 
+                fontSize: 12
+              ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),

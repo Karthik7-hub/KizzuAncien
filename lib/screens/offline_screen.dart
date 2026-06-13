@@ -16,11 +16,18 @@ class _OfflineScreenState extends State<OfflineScreen> {
   bool _isRetrying = false;
 
   Future<void> _handleRetry() async {
+    if (_isRetrying) return;
     setState(() => _isRetrying = true);
     try {
-      await widget.onRetry();
+      // Use a timeout to prevent infinite loading on the button if 
+      // the network is still dead but not throwing immediately.
+      await widget.onRetry().timeout(const Duration(seconds: 15));
     } catch (e) {
-      // Error handled by the onRetry function itself usually (e.g. updating AuthProvider status)
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Still unable to connect. Please try again later.')),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isRetrying = false);

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/notification.dart';
-import '../utils/logger.dart';
+import 'package:kizzu_ancien/utils/logger.dart';
 
 class NotificationProvider extends ChangeNotifier {
   List<NotificationModel> _notifications = [];
@@ -28,7 +28,15 @@ class NotificationProvider extends ChangeNotifier {
   Future<void> markAsRead() async {
     try {
       await _apiService.dio.put('/notifications/read');
-      await fetchNotifications();
+      _notifications = _notifications.map((n) => NotificationModel(
+        id: n.id,
+        message: n.message,
+        type: n.type,
+        read: true,
+        createdAt: n.createdAt,
+        sender: n.sender,
+      )).toList();
+      notifyListeners();
     } catch (e) {
       AppLogger.error('Error marking notifications as read', e);
     }

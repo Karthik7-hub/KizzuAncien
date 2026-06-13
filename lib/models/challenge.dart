@@ -1,4 +1,6 @@
 import 'user.dart';
+import 'note.dart';
+import 'message.dart';
 
 class Challenge {
   final String id;
@@ -13,6 +15,9 @@ class Challenge {
   final DateTime createdAt;
   final DateTime updatedAt;
   final Map<String, dynamic>? submission;
+  final List<Note> notes;
+  final Message? latestMessage;
+  final int unreadCount;
 
   Challenge({
     required this.id,
@@ -27,6 +32,9 @@ class Challenge {
     required this.createdAt,
     required this.updatedAt,
     this.submission,
+    this.notes = const [],
+    this.latestMessage,
+    this.unreadCount = 0,
   });
 
   factory Challenge.fromJson(Map<String, dynamic> json) {
@@ -47,6 +55,13 @@ class Challenge {
           ? DateTime.parse(json['updatedAt'])
           : DateTime.now(),
       submission: json['submission'],
+      notes: json['notes'] != null 
+          ? (json['notes'] as List).map((n) => Note.fromJson(n)).toList()
+          : [],
+      latestMessage: json['latestMessage'] != null 
+          ? Message.fromJson(json['latestMessage'])
+          : null,
+      unreadCount: json['unreadCount'] ?? 0,
     );
   }
 }
