@@ -190,8 +190,13 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.noteToEdit == null) _buildTypeSelector(),
-                  if (widget.noteToEdit == null) const SizedBox(height: 32),
+                  if (widget.noteToEdit == null && widget.initialType == null) ...[
+                    _buildTypeSelector(),
+                    const SizedBox(height: 32),
+                  ] else ...[
+                    _buildTypeHeader(),
+                    const SizedBox(height: 24),
+                  ],
                   _buildLabel('TITLE'),
                   CustomTextField(
                     controller: _titleController,
@@ -211,6 +216,78 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
             ),
           ),
           _buildActionArea(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTypeHeader() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    String labelText;
+    IconData iconData;
+    switch (_selectedType) {
+      case NoteType.code:
+        labelText = 'Code Template';
+        iconData = LucideIcons.code;
+        break;
+      case NoteType.explanation:
+        labelText = 'Text Explanation';
+        iconData = LucideIcons.fileText;
+        break;
+      case NoteType.image:
+        labelText = 'Image Attachment';
+        iconData = LucideIcons.image;
+        break;
+      case NoteType.link:
+        labelText = 'External Resource Link';
+        iconData = LucideIcons.link;
+        break;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.black : AppTheme.zinc100,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: AppTheme.accent.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(iconData, color: AppTheme.accent, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'NOTE TYPE',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).textTheme.labelSmall?.color,
+                    letterSpacing: 1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  labelText,
+                  style: TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -459,7 +536,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 24),
         decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
+          color: isDark ? AppTheme.black : Theme.of(context).cardTheme.color,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
         ),

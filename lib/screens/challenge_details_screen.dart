@@ -132,12 +132,12 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         statusBgColor = Colors.green.withValues(alpha: 0.15);
         break;
       case 'rejected':
-        statusColor = Colors.redAccent;
-        statusBgColor = Colors.redAccent.withValues(alpha: 0.15);
+        statusColor = isDark ? AppTheme.zinc400 : AppTheme.zinc600;
+        statusBgColor = isDark ? AppTheme.zinc900 : AppTheme.zinc100;
         break;
       case 'submitted':
-        statusColor = Colors.indigoAccent;
-        statusBgColor = Colors.indigoAccent.withValues(alpha: 0.15);
+        statusColor = AppTheme.accent;
+        statusBgColor = AppTheme.accent.withValues(alpha: 0.15);
         break;
       default:
         statusColor = isDark ? AppTheme.zinc400 : AppTheme.zinc600;
@@ -310,6 +310,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
   }
 
   Widget _buildActivityTimeline(Challenge challenge, List<Note> notes, List<Message> messages) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     // Collect dynamic events
     final List<Map<String, dynamic>> events = [];
     
@@ -318,7 +319,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
       'subtitle': 'Created by ${challenge.creator.name}',
       'time': challenge.createdAt,
       'icon': LucideIcons.rocket,
-      'color': Colors.blueAccent,
+      'color': isDark ? AppTheme.zinc500 : AppTheme.zinc600,
     });
 
     if (notes.isNotEmpty) {
@@ -329,7 +330,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         'subtitle': '${notes.length} note(s) created. Latest by ${latestNote.createdBy.name}',
         'time': latestNote.updatedAt,
         'icon': LucideIcons.layers,
-        'color': Colors.amber,
+        'color': AppTheme.accent,
       });
     }
 
@@ -339,7 +340,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         'subtitle': '${messages.length} message(s) exchanged. Latest by ${messages.last.sender.name}',
         'time': messages.last.createdAt,
         'icon': LucideIcons.messageCircle,
-        'color': Colors.purpleAccent,
+        'color': AppTheme.accent,
       });
     }
 
@@ -349,7 +350,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         'subtitle': 'Awaiting creator review',
         'time': challenge.updatedAt,
         'icon': LucideIcons.checkSquare,
-        'color': Colors.indigoAccent,
+        'color': AppTheme.accent,
       });
     } else if (challenge.status == 'approved') {
       events.add({
@@ -365,7 +366,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
         'subtitle': 'Sent back by ${challenge.creator.name}',
         'time': challenge.updatedAt,
         'icon': LucideIcons.xCircle,
-        'color': Colors.redAccent,
+        'color': isDark ? AppTheme.zinc500 : AppTheme.zinc600,
       });
     }
 

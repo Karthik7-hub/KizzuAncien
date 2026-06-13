@@ -14,6 +14,7 @@ import '../widgets/section_header.dart';
 import 'create_note_screen.dart';
 import 'note_viewer_screen.dart';
 import 'submission_screen.dart';
+import '../widgets/custom_button.dart';
 
 class SubmissionWorkspaceScreen extends StatefulWidget {
   final Challenge challenge;
@@ -224,7 +225,7 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
+        color: isDark ? AppTheme.black : Theme.of(context).cardTheme.color,
         border: Border(bottom: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200)),
       ),
       child: Column(
@@ -335,7 +336,7 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
         color: isDark ? AppTheme.zinc600 : AppTheme.zinc400,
         size: 18,
       ),
-      color: isDark ? AppTheme.zinc950 : AppTheme.white,
+      color: isDark ? AppTheme.black : AppTheme.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
@@ -428,40 +429,28 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
           children: [
             Expanded(
               flex: showSubmissionAction ? 2 : 1,
-              child: SizedBox(
-                height: 48,
-                child: OutlinedButton.icon(
-                  onPressed: _showAddNotePicker,
-                  icon: const Icon(LucideIcons.plus, size: 16),
-                  label: const Text('Add Note', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Theme.of(context).primaryColor,
-                    side: BorderSide(color: Theme.of(context).primaryColor, width: 1.5),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
+              child: CustomButton(
+                text: 'Add Note',
+                onPressed: _showAddNotePicker,
+                backgroundColor: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
+                textColor: Theme.of(context).primaryColor,
+                borderColor: isDark ? AppTheme.zinc800 : AppTheme.zinc200,
+                icon: Icon(LucideIcons.plus, size: 16, color: Theme.of(context).primaryColor),
               ),
             ),
             if (showSubmissionAction) ...[
               const SizedBox(width: 12),
               Expanded(
                 flex: 3,
-                child: SizedBox(
-                  height: 48,
-                  child: ElevatedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context, 
-                      MaterialPageRoute(builder: (_) => SubmissionScreen(challenge: challenge))
-                    ),
-                    icon: const Icon(LucideIcons.checkSquare, size: 16),
-                    label: const Text('Create Submission', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Theme.of(context).scaffoldBackgroundColor,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
-                    ),
+                child: CustomButton(
+                  text: 'Create Submission',
+                  onPressed: () => Navigator.push(
+                    context, 
+                    MaterialPageRoute(builder: (_) => SubmissionScreen(challenge: challenge))
                   ),
+                  backgroundColor: Theme.of(context).primaryColor,
+                  textColor: Theme.of(context).scaffoldBackgroundColor,
+                  icon: Icon(LucideIcons.checkSquare, size: 16, color: Theme.of(context).scaffoldBackgroundColor),
                 ),
               ),
             ],

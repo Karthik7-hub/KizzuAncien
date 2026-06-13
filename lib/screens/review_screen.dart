@@ -112,7 +112,7 @@ class _ReviewScreenState extends State<ReviewScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 48),
+              const Icon(LucideIcons.alertCircle, color: AppTheme.accent, size: 48),
               const SizedBox(height: 16),
               Text(_errorMessage!, style: TextStyle(color: isDark ? AppTheme.zinc400 : AppTheme.zinc600)),
               const SizedBox(height: 24),
@@ -344,10 +344,10 @@ class _ReviewScreenState extends State<ReviewScreen> {
                 height: 48,
                 child: OutlinedButton.icon(
                   onPressed: _isReviewing ? null : () => _handleReview('rejected'),
-                  icon: const Icon(LucideIcons.xCircle, size: 16, color: Colors.redAccent),
-                  label: const Text('Request Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.redAccent)),
+                  icon: Icon(LucideIcons.xCircle, size: 16, color: isDark ? AppTheme.zinc300 : AppTheme.zinc700),
+                  label: Text('Request Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.zinc300 : AppTheme.zinc700)),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.redAccent, width: 1.5),
+                    side: BorderSide(color: isDark ? AppTheme.zinc700 : AppTheme.zinc300, width: 1.5),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                   ),
                 ),

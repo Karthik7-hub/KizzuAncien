@@ -63,19 +63,19 @@ class NotePreviewCard extends StatelessWidget {
     switch (note.type) {
       case NoteType.code:
         icon = LucideIcons.code;
-        color = Colors.blueAccent;
+        color = AppTheme.accent;
         break;
       case NoteType.explanation:
         icon = LucideIcons.fileText;
-        color = isDark ? Colors.greenAccent : Colors.green;
+        color = Colors.green;
         break;
       case NoteType.image:
         icon = LucideIcons.image;
-        color = Colors.purpleAccent;
+        color = isDark ? AppTheme.zinc300 : AppTheme.zinc600;
         break;
       case NoteType.link:
         icon = LucideIcons.link;
-        color = isDark ? Colors.orangeAccent : Colors.orange;
+        color = AppTheme.accent;
         break;
     }
 
@@ -159,8 +159,8 @@ class NotePreviewCard extends StatelessWidget {
       case NoteType.link:
         return Text(
           note.url,
-          style: TextStyle(
-            color: isDark ? Colors.blueAccent : const Color(0xFF1D4ED8),
+          style: const TextStyle(
+            color: AppTheme.accent,
             fontSize: 13,
             decoration: TextDecoration.underline,
           ),
