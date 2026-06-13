@@ -151,7 +151,7 @@ class _TruthDareScreenState extends State<TruthDareScreen> {
             ),
           ),
           Container(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).padding.bottom + 20),
+            padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.paddingOf(context).bottom + 20),
             child: CustomButton(
               text: 'Send ${_isTruthMode ? "Truth" : "Dare"}',
               isLoading: isLoading,

@@ -166,7 +166,7 @@ class _NoteViewerScreenState extends State<NoteViewerScreen> {
                 const SizedBox(width: 16),
                 // Code
                 SizedBox(
-                  width: _isWrapped ? MediaQuery.of(context).size.width - 100 : null,
+                  width: _isWrapped ? MediaQuery.sizeOf(context).width - 100 : null,
                   child: SelectableText(
                     widget.note.code,
                     style: TextStyle(

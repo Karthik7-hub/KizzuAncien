@@ -308,7 +308,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => StatefulBuilder(
         builder: (context, setModalState) => Container(
-          height: MediaQuery.of(context).size.height * 0.7,
+          height: MediaQuery.sizeOf(context).height * 0.7,
           padding: const EdgeInsets.all(24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

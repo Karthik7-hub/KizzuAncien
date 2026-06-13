@@ -455,7 +455,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.of(context).padding.bottom + 16),
+      padding: EdgeInsets.fromLTRB(20, 16, 20, MediaQuery.paddingOf(context).bottom + 16),
       decoration: BoxDecoration(
         color: Theme.of(context).scaffoldBackgroundColor,
         border: Border(top: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200)),

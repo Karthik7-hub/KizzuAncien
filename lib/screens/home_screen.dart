@@ -387,7 +387,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        width: (MediaQuery.of(context).size.width - 64) / 3,
+        width: (MediaQuery.sizeOf(context).width - 64) / 3,
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
           color: Theme.of(context).cardTheme.color,
