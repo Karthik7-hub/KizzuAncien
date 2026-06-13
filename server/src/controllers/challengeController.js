@@ -51,7 +51,22 @@ exports.getChallenges = async (req, res, next) => {
     })
     .populate('creator recipient', 'name username profileImageUrl gender avatarType')
     .sort('-createdAt');
-    res.json(challenges);
+
+    // Fetch submissions for these challenges and merge them
+    const challengeIds = challenges.map(c => c._id);
+    const submissions = await ChallengeSubmission.find({
+      challenge: { $in: challengeIds }
+    });
+
+    const results = challenges.map(challenge => {
+      const submission = submissions.find(s => s.challenge.toString() === challenge._id.toString());
+      return {
+        ...challenge.toObject(),
+        submission: submission || null
+      };
+    });
+
+    res.json(results);
   } catch (error) {
     next(error);
   }
