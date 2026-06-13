@@ -100,11 +100,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
     super.build(context);
     final primaryColor = Theme.of(context).primaryColor;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
-    final double bottomPadding = widget.recipient != null 
-        ? 20.0 
-        : (_isKeyboardOpen ? 20.0 : 120.0);
+    final double bottomPadding = _isKeyboardOpen 
+        ? 340.0 
+        : (widget.recipient != null ? 20.0 : 120.0);
 
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       appBar: AppHeader(
         title: 'New Challenge',
         showBackButton: Navigator.canPop(context),
