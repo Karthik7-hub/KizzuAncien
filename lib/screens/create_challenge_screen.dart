@@ -62,14 +62,14 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    if (!mounted) return;
-    final view = View.maybeOf(context) ?? WidgetsBinding.instance.platformDispatcher.views.first;
-    final double bottomInset = view.viewInsets.bottom;
-    final bool isKeyboardOpen = bottomInset > 0;
-    if (isKeyboardOpen != _isKeyboardOpen) {
-      setState(() {
-        _isKeyboardOpen = isKeyboardOpen;
-      });
+    if (mounted) {
+      final double bottomInset = View.of(context).viewInsets.bottom;
+      final bool isOpen = bottomInset > 0;
+      if (isOpen != _isKeyboardOpen) {
+        setState(() {
+          _isKeyboardOpen = isOpen;
+        });
+      }
     }
   }
 
@@ -100,12 +100,12 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
     super.build(context);
     final primaryColor = Theme.of(context).primaryColor;
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
-    final double bottomPadding = _isKeyboardOpen 
-        ? 340.0 
-        : (widget.recipient != null ? 20.0 : 120.0);
+    final bool isKeyboardOpen = _isKeyboardOpen;
+    final double bottomPadding = widget.recipient != null 
+        ? 20.0 
+        : (isKeyboardOpen ? 20.0 : 120.0);
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       appBar: AppHeader(
         title: 'New Challenge',
         showBackButton: Navigator.canPop(context),

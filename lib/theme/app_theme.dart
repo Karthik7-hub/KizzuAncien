@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   static const Color black = Color(0xFF000000);
@@ -79,16 +78,14 @@ class AppTheme {
         ),
       ),
 
-      textTheme: GoogleFonts.interTextTheme(
-        TextTheme(
-          displayLarge: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
-          displayMedium: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5),
-          displaySmall: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
-          bodyLarge: TextStyle(color: textColor, fontSize: 16),
-          bodyMedium: TextStyle(color: isDark ? zinc400 : zinc600, fontSize: 14),
-          labelLarge: TextStyle(color: subTextColor, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5),
-          labelSmall: TextStyle(color: isDark ? zinc600 : zinc400, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
-        ),
+      textTheme: TextTheme(
+        displayLarge: TextStyle(color: textColor, fontSize: 24, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+        displayMedium: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5),
+        displaySmall: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold),
+        bodyLarge: TextStyle(color: textColor, fontSize: 16),
+        bodyMedium: TextStyle(color: isDark ? zinc400 : zinc600, fontSize: 14),
+        labelLarge: TextStyle(color: subTextColor, fontSize: 13, fontWeight: FontWeight.w600, letterSpacing: 0.5),
+        labelSmall: TextStyle(color: isDark ? zinc600 : zinc400, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1.0),
       ),
       
       appBarTheme: AppBarTheme(

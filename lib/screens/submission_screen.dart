@@ -20,37 +20,15 @@ class SubmissionScreen extends StatefulWidget {
   State<SubmissionScreen> createState() => _SubmissionScreenState();
 }
 
-class _SubmissionScreenState extends State<SubmissionScreen> with WidgetsBindingObserver {
+class _SubmissionScreenState extends State<SubmissionScreen> {
   final List<String> _selectedNoteIds = [];
   final TextEditingController _commentController = TextEditingController();
   bool _isSubmitting = false;
-  bool _isKeyboardOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addObserver(this);
-  }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _commentController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    if (!mounted) return;
-    final view = View.maybeOf(context) ?? WidgetsBinding.instance.platformDispatcher.views.first;
-    final double bottomInset = view.viewInsets.bottom;
-    final bool isKeyboardOpen = bottomInset > 0;
-    if (isKeyboardOpen != _isKeyboardOpen) {
-      setState(() {
-        _isKeyboardOpen = isKeyboardOpen;
-      });
-    }
   }
 
   Future<void> _handleSubmit() async {
@@ -97,7 +75,6 @@ class _SubmissionScreenState extends State<SubmissionScreen> with WidgetsBinding
 
 
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       appBar: const AppHeader(
         title: 'Create Submission',
         showBackButton: true,
@@ -106,7 +83,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> with WidgetsBinding
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20, 12, 20, _isKeyboardOpen ? 340.0 : 12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -156,7 +133,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> with WidgetsBinding
               ),
             ),
           ),
-          if (!_isKeyboardOpen) _buildSubmitActionArea(),
+          _buildSubmitActionArea(),
         ],
       ),
     );

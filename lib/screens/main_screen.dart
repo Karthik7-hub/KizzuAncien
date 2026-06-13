@@ -62,14 +62,14 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   @override
   void didChangeMetrics() {
     super.didChangeMetrics();
-    if (!mounted) return;
-    final view = View.maybeOf(context) ?? WidgetsBinding.instance.platformDispatcher.views.first;
-    final double bottomInset = view.viewInsets.bottom;
-    final bool isKeyboardOpen = bottomInset > 0;
-    if (isKeyboardOpen != _isKeyboardOpen) {
-      setState(() {
-        _isKeyboardOpen = isKeyboardOpen;
-      });
+    if (mounted) {
+      final double bottomInset = View.of(context).viewInsets.bottom;
+      final bool isOpen = bottomInset > 0;
+      if (isOpen != _isKeyboardOpen) {
+        setState(() {
+          _isKeyboardOpen = isOpen;
+        });
+      }
     }
   }
 

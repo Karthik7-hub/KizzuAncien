@@ -12,6 +12,7 @@ import '../widgets/avatar_widget.dart';
 import '../widgets/custom_button.dart';
 import '../widgets/challenge_card.dart';
 import '../widgets/challenge_filter_dropdown.dart';
+import '../widgets/unified_search_field.dart';
 import 'create_challenge_screen.dart';
 import 'truth_dare_screen.dart';
 
@@ -339,51 +340,38 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
   Widget _buildToolbar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Container(
-                height: 44,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardTheme.color,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: (value) => setState(() => _searchQuery = value),
-                  style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: 'Search history...',
-                    hintStyle: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color),
-                    prefixIcon: Icon(LucideIcons.search, size: 16, color: Theme.of(context).textTheme.labelSmall?.color),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            ChallengeFilterDropdown(
-              selectedCategory: _selectedCategory,
-              onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
-            ),
-            const SizedBox(width: 8),
-            PopupMenuButton<String>(
-              icon: Icon(LucideIcons.listFilter, size: 20, color: Theme.of(context).textTheme.labelSmall?.color),
-              color: Theme.of(context).cardTheme.color,
-              onSelected: (value) => setState(() => _sortBy = value),
-              itemBuilder: (context) => [
-                _buildSortItem('newest', 'Newest First'),
-                _buildSortItem('oldest', 'Oldest First'),
-                _buildSortItem('updated', 'Recently Updated'),
-                _buildSortItem('alphabetical', 'Alphabetical'),
-              ],
-            ),
+        Expanded(
+          child: UnifiedSearchField(
+            controller: _searchController,
+            hintText: 'Search history...',
+            onChanged: (value) => setState(() => _searchQuery = value),
+          ),
+        ),
+        const SizedBox(width: 12),
+        ChallengeFilterDropdown(
+          selectedCategory: _selectedCategory,
+          onCategoryChanged: (cat) => setState(() => _selectedCategory = cat),
+        ),
+        const SizedBox(width: 8),
+        PopupMenuButton<String>(
+          icon: Icon(
+            LucideIcons.listFilter,
+            size: 20,
+            color: isDark ? AppTheme.zinc600 : AppTheme.zinc500,
+          ),
+          color: isDark ? AppTheme.zinc950 : AppTheme.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+          ),
+          onSelected: (value) => setState(() => _sortBy = value),
+          itemBuilder: (context) => [
+            _buildSortItem('newest', 'Newest First'),
+            _buildSortItem('oldest', 'Oldest First'),
+            _buildSortItem('updated', 'Recently Updated'),
+            _buildSortItem('alphabetical', 'Alphabetical'),
           ],
         ),
       ],
@@ -391,13 +379,16 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   }
 
   PopupMenuItem<String> _buildSortItem(String value, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isSelected = _sortBy == value;
     return PopupMenuItem(
       value: value,
       child: Text(
         label,
         style: TextStyle(
-          color: isSelected ? Theme.of(context).primaryColor : Theme.of(context).textTheme.labelSmall?.color,
+          color: isSelected
+              ? (isDark ? AppTheme.white : AppTheme.zinc950)
+              : (isDark ? AppTheme.zinc500 : AppTheme.zinc600),
           fontSize: 12,
           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
         ),

@@ -28,14 +28,12 @@ class CreateNoteScreen extends StatefulWidget {
   State<CreateNoteScreen> createState() => _CreateNoteScreenState();
 }
 
-class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBindingObserver {
+class _CreateNoteScreenState extends State<CreateNoteScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _contentController = TextEditingController();
   final _urlController = TextEditingController();
-  
-  bool _isKeyboardOpen = false;
-  
+
   late NoteType _selectedType;
   String _selectedLanguage = 'C++';
   List<String> _remoteImages = [];
@@ -47,7 +45,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     if (widget.noteToEdit != null) {
       final note = widget.noteToEdit!;
       _titleController.text = note.title;
@@ -76,26 +73,11 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
     _descriptionController.dispose();
     _contentController.dispose();
     _urlController.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeMetrics() {
-    super.didChangeMetrics();
-    if (!mounted) return;
-    final view = View.maybeOf(context) ?? WidgetsBinding.instance.platformDispatcher.views.first;
-    final double bottomInset = view.viewInsets.bottom;
-    final bool isKeyboardOpen = bottomInset > 0;
-    if (isKeyboardOpen != _isKeyboardOpen) {
-      setState(() {
-        _isKeyboardOpen = isKeyboardOpen;
-      });
-    }
   }
 
   bool get _canSave {
@@ -187,7 +169,10 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
         Navigator.pop(context);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to save note. Please try again.'), backgroundColor: Colors.redAccent),
+          SnackBar(
+            content: const Text('Failed to save note. Please try again.'), 
+            backgroundColor: Theme.of(context).primaryColor,
+          ),
         );
       }
     }
@@ -196,7 +181,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      resizeToAvoidBottomInset: false,
       appBar: AppHeader(
         title: widget.noteToEdit != null ? 'Edit Note' : 'Create Note',
         showBackButton: true,
@@ -205,7 +189,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: EdgeInsets.fromLTRB(20, 20, 20, _isKeyboardOpen ? 340.0 : 20.0),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -234,7 +218,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> with WidgetsBinding
               ),
             ),
           ),
-          if (!_isKeyboardOpen) _buildActionArea(),
+          _buildActionArea(),
         ],
       ),
     );
