@@ -68,7 +68,37 @@ exports.getChallenges = async (req, res, next) => {
     const latestMessages = await Message.aggregate([
       { $match: { challenge: { $in: challengeIds } } },
       { $sort: { createdAt: -1 } },
-      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } }
+      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'lastMessage.sender',
+          foreignField: '_id',
+          as: 'senderInfo'
+        }
+      },
+      {
+        $addFields: {
+          'lastMessage.sender': {
+            $let: {
+              vars: { user: { $arrayElemAt: ['$senderInfo', 0] } },
+              in: {
+                _id: '$$user._id',
+                name: '$$user.name',
+                username: '$$user.username',
+                profileImageUrl: '$$user.profileImageUrl',
+                gender: '$$user.gender',
+                avatarType: '$$user.avatarType'
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          senderInfo: 0
+        }
+      }
     ]);
 
     // Merge submissions and messages into challenges
@@ -117,7 +147,37 @@ exports.getSharedChallenges = async (req, res, next) => {
     const latestMessages = await Message.aggregate([
       { $match: { challenge: { $in: challengeIds } } },
       { $sort: { createdAt: -1 } },
-      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } }
+      { $group: { _id: "$challenge", lastMessage: { $first: "$$ROOT" } } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'lastMessage.sender',
+          foreignField: '_id',
+          as: 'senderInfo'
+        }
+      },
+      {
+        $addFields: {
+          'lastMessage.sender': {
+            $let: {
+              vars: { user: { $arrayElemAt: ['$senderInfo', 0] } },
+              in: {
+                _id: '$$user._id',
+                name: '$$user.name',
+                username: '$$user.username',
+                profileImageUrl: '$$user.profileImageUrl',
+                gender: '$$user.gender',
+                avatarType: '$$user.avatarType'
+              }
+            }
+          }
+        }
+      },
+      {
+        $project: {
+          senderInfo: 0
+        }
+      }
     ]);
 
     // Merge submissions and messages into challenges
