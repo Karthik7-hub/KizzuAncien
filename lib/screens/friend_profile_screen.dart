@@ -166,7 +166,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            expandedHeight: _relationshipStatus == 'FRIENDS' ? 400 : 220,
+            expandedHeight: _relationshipStatus == 'FRIENDS' ? 450 : 220,
             pinned: true,
             leading: IconButton(
               icon: Icon(LucideIcons.chevronLeft, color: primaryColor),
@@ -572,35 +572,47 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.zinc950 : AppTheme.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+        color: isDark ? const Color(0xFF0F0F12) : AppTheme.white,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: isDark ? const Color(0xFF1D1D22) : AppTheme.zinc200, width: 1.2),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.04),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+        ],
       ),
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatDetailItem('$sharedStreak', 'Current Streak', LucideIcons.flame, Colors.amber),
+              _buildStatDetailItem('$sharedStreak', 'Current Streak', LucideIcons.flame, const Color(0xFFFF9500)),
               _buildStatDivider(),
-              _buildStatDetailItem('$sharedLongestStreak', 'Shared Record', LucideIcons.flame, Colors.orangeAccent),
+              _buildStatDetailItem('$sharedLongestStreak', 'Shared Record', LucideIcons.flame, const Color(0xFFFF5B00)),
               _buildStatDivider(),
-              _buildStatDetailItem('${_profileUser?.longestStreak ?? friend.longestStreak}', 'Lifetime Record', LucideIcons.flame, Colors.deepOrange),
+              _buildStatDetailItem('${_profileUser?.longestStreak ?? friend.longestStreak}', 'Lifetime Record', LucideIcons.flame, const Color(0xFFFF3B30)),
             ],
           ),
-          const SizedBox(height: 12),
-          Divider(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200, height: 1),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Divider(color: isDark ? const Color(0xFF1D1D22) : AppTheme.zinc200, height: 1, thickness: 1),
+          ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatDetailItem('$_relationshipPoints', 'My Points', LucideIcons.sparkles, Colors.green),
+              _buildStatDetailItem('$_relationshipPoints', 'My Points', LucideIcons.sparkles, const Color(0xFF34C759)),
               _buildStatDivider(),
-              _buildStatDetailItem('$_friendRelationshipPoints', 'Their Points', LucideIcons.award, Colors.indigo),
+              _buildStatDetailItem('$_friendRelationshipPoints', 'Their Points', LucideIcons.award, const Color(0xFF5856D6)),
               _buildStatDivider(),
-              _buildStatDetailItem('$_friendTotalPoints', 'Total Points', LucideIcons.trophy, Colors.purple),
+              _buildStatDetailItem('$_friendTotalPoints', 'Total Points', LucideIcons.trophy, const Color(0xFFAF52DE)),
             ],
           ),
         ],
@@ -610,34 +622,39 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
 
   Widget _buildStatDivider() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(width: 1, height: 32, color: isDark ? AppTheme.zinc900 : AppTheme.zinc200);
+    return Container(width: 1, height: 44, color: isDark ? const Color(0xFF1D1D22) : AppTheme.zinc200);
   }
 
   Widget _buildStatDetailItem(String value, String label, IconData icon, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: color),
-            const SizedBox(width: 4),
-            Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Theme.of(context).primaryColor,
-              ),
-            ),
-          ],
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: isDark ? 0.1 : 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(icon, size: 18, color: color),
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 8),
         Text(
-          label,
+          value,
           style: TextStyle(
-            fontSize: 9,
             fontWeight: FontWeight.bold,
-            color: Theme.of(context).textTheme.labelSmall?.color,
+            fontSize: 20,
+            color: Theme.of(context).primaryColor,
+            letterSpacing: -0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label.toUpperCase(),
+          style: TextStyle(
+            fontSize: 8,
+            fontWeight: FontWeight.w800,
+            color: isDark ? AppTheme.zinc500 : AppTheme.zinc600,
+            letterSpacing: 0.5,
           ),
         ),
       ],

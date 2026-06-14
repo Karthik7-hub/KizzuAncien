@@ -7,10 +7,10 @@ import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
 import '../widgets/section_header.dart';
-import 'auth_screen.dart';
 import 'appearance_settings_screen.dart';
 import 'privacy_settings_screen.dart';
 import 'notification_settings_screen.dart';
+import 'logout_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -69,13 +69,6 @@ class SettingsScreen extends StatelessWidget {
             'Sign Out',
             textColor: Colors.redAccent,
             onTap: () => _showSignOutDialog(context, authProvider),
-          ),
-          _buildSettingsTile(
-            context,
-            LucideIcons.trash2,
-            'Delete Account',
-            textColor: Colors.redAccent,
-            onTap: () => _showDeleteAccountDialog(context, authProvider),
           ),
         ],
       ),
@@ -360,80 +353,19 @@ class SettingsScreen extends StatelessWidget {
           ),
           TextButton(
             onPressed: () async {
-              Navigator.pop(context);
+              Navigator.pop(context); // Close confirmation dialog
               HapticFeedback.mediumImpact();
-              await authProvider.logout();
+              
               if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                  (route) => false,
+                final result = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (_) => const LogoutScreen()),
                 );
-              }
-            },
-            child: const Text(
-              'Sign Out',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
-  void _showDeleteAccountDialog(BuildContext context, AuthProvider authProvider) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.zinc950 : AppTheme.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
-        ),
-        title: Text(
-          'Delete Account',
-          style: TextStyle(
-            color: isDark ? AppTheme.white : AppTheme.zinc950,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: Text(
-          'Are you sure you want to delete your account? This action is permanent and will delete all your progress, friends, challenges, and notes.',
-          style: TextStyle(
-            color: isDark ? AppTheme.zinc400 : AppTheme.zinc600,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: isDark ? AppTheme.zinc500 : AppTheme.zinc600,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              HapticFeedback.mediumImpact();
-              try {
-                await authProvider.deleteAccount();
-                if (context.mounted) {
-                  Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(builder: (context) => const AuthScreen()),
-                    (route) => false,
-                  );
-                }
-              } catch (e) {
-                if (context.mounted) {
+                if (result != null && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Failed to delete account: $e'),
+                      content: Text('Failed to sign out: $result'),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
@@ -441,7 +373,7 @@ class SettingsScreen extends StatelessWidget {
               }
             },
             child: const Text(
-              'Delete Permanent',
+              'Sign Out',
               style: TextStyle(
                 color: Colors.redAccent,
                 fontWeight: FontWeight.bold,

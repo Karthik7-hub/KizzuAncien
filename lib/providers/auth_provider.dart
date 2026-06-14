@@ -186,57 +186,25 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> deleteAccount() async {
-    _isLoading = true;
-    notifyListeners();
-    try {
-      await _apiService.dio.delete('/users/profile');
-      
-      // Clean up local Google sign out
-      try {
-        final GoogleSignIn googleSignIn = GoogleSignIn(
-          serverClientId: AppConstants.googleServerClientId,
-        );
-        if (await googleSignIn.isSignedIn()) {
-          await googleSignIn.signOut();
-          await googleSignIn.disconnect();
-        }
-      } catch (e) {
-        AppLogger.error('Google SignOut error during account deletion', e);
-      }
 
-      SessionUtils.clearAllData();
-      await _storage.deleteAll();
-      _user = null;
-      _status = AuthStatus.unauthenticated;
-      _isLoading = false;
-      notifyListeners();
-    } on DioException catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      throw Exception(e.response?.data['message'] ?? 'Account deletion failed');
-    } catch (e) {
-      _isLoading = false;
-      notifyListeners();
-      rethrow;
-    }
-  }
 
 
   Future<void> logout() async {
     try {
-      await _apiService.dio.put('/users/fcm-token', data: {'fcmToken': null});
+      await _apiService.dio.post('/auth/logout').timeout(const Duration(seconds: 2));
     } catch (e) {
       // Silently fail logout server-side update
+      AppLogger.error('Server logout error', e);
     }
 
     try {
       final GoogleSignIn googleSignIn = GoogleSignIn(
         serverClientId: AppConstants.googleServerClientId,
       );
-      if (await googleSignIn.isSignedIn()) {
-        await googleSignIn.signOut();
-        await googleSignIn.disconnect(); // Fully disconnect to force account picker
+      final hasGoogle = await googleSignIn.isSignedIn().timeout(const Duration(seconds: 1), onTimeout: () => false);
+      if (hasGoogle) {
+        await googleSignIn.signOut().timeout(const Duration(seconds: 1));
+        await googleSignIn.disconnect().timeout(const Duration(seconds: 1)); // Fully disconnect to force account picker
       }
     } catch (e) {
       AppLogger.error('Google SignOut error', e);
