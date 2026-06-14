@@ -21,6 +21,7 @@ import '../widgets/app_header.dart';
 
 import '../widgets/app_card.dart';
 
+import '../widgets/unified_challenge_tile.dart';
 import '../widgets/unified_user_tile.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -152,7 +153,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
                   if (activeChallenges.isNotEmpty) ...[
                     _buildSectionHeader('TODAY\'S CHALLENGES'),
                     const SizedBox(height: 16),
-                    ...activeChallenges.map((c) => _buildTodayChallengeCard(c)),
+                    ...activeChallenges.map((c) => UnifiedChallengeTile(challenge: c, variant: ChallengeTileVariant.compact)),
                     const SizedBox(height: 32),
                   ],
 

@@ -41,4 +41,10 @@ class NotificationProvider extends ChangeNotifier {
       AppLogger.error('Error marking notifications as read', e);
     }
   }
+
+  void clear() {
+    _notifications = [];
+    _isLoading = false;
+    notifyListeners();
+  }
 }

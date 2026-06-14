@@ -13,21 +13,21 @@ import '../widgets/custom_button.dart';
 import '../widgets/custom_text_field.dart';
 import '../widgets/form_label.dart';
 
-class CreateNoteScreen extends StatefulWidget {
+class EditNoteScreen extends StatefulWidget {
   final String challengeId;
-  final NoteType? initialType;
+  final Note note;
 
-  const CreateNoteScreen({
+  const EditNoteScreen({
     super.key,
     required this.challengeId,
-    this.initialType,
+    required this.note,
   });
 
   @override
-  State<CreateNoteScreen> createState() => _CreateNoteScreenState();
+  State<EditNoteScreen> createState() => _EditNoteScreenState();
 }
 
-class _CreateNoteScreenState extends State<CreateNoteScreen> {
+class _EditNoteScreenState extends State<EditNoteScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   late TextEditingController _contentController;
@@ -47,32 +47,31 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
     _titleController.addListener(_updateState);
     _urlController.addListener(_updateState);
 
-    _selectedType = widget.initialType ?? NoteType.explanation;
+    final note = widget.note;
+    _titleController.text = note.title;
+    _descriptionController.text = note.description ?? '';
+    _selectedType = note.type;
+
     if (_selectedType == NoteType.code) {
-      _contentController = CodeEditingController(language: _selectedLanguage);
+      _selectedLanguage = note.language;
+      _contentController = CodeEditingController(text: note.code, language: _selectedLanguage);
     } else {
       _contentController = TextEditingController();
+      switch (note.type) {
+        case NoteType.explanation:
+          _contentController.text = note.explanation;
+          break;
+        case NoteType.image:
+          _remoteImages = List<String>.from(note.images);
+          break;
+        case NoteType.link:
+          _urlController.text = note.url;
+          break;
+        default:
+          break;
+      }
     }
     _contentController.addListener(_updateState);
-  }
-
-  void _onTypeChanged(NoteType type) {
-    if (_selectedType == type) return;
-
-    final currentText = _contentController.text;
-    _contentController.removeListener(_updateState);
-    _contentController.dispose();
-
-    if (type == NoteType.code) {
-      _contentController = CodeEditingController(text: currentText, language: _selectedLanguage);
-    } else {
-      _contentController = TextEditingController(text: currentText);
-    }
-    _contentController.addListener(_updateState);
-
-    setState(() {
-      _selectedType = type;
-    });
   }
 
   void _updateState() {
@@ -156,8 +155,9 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
     }
 
     final provider = context.read<ChallengeProvider>();
-    final success = await provider.createNote(
+    final success = await provider.updateNote(
       widget.challengeId,
+      widget.note.id,
       {
         'title': _titleController.text.trim(),
         'description': _descriptionController.text.trim(),
@@ -186,7 +186,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: const AppHeader(
-        title: 'Create Note',
+        title: 'Edit Note',
         showBackButton: true,
       ),
       body: Column(
@@ -197,13 +197,8 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (widget.initialType == null) ...[
-                    _buildTypeSelector(),
-                    const SizedBox(height: 32),
-                  ] else ...[
-                    _buildTypeHeader(),
-                    const SizedBox(height: 24),
-                  ],
+                  _buildTypeHeader(),
+                  const SizedBox(height: 24),
                   _buildLabel('TITLE'),
                   CustomTextField(
                     controller: _titleController,
@@ -298,42 +293,6 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildTypeSelector() {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = Theme.of(context).primaryColor;
-    final bgColor = Theme.of(context).scaffoldBackgroundColor;
-
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: NoteType.values.map((type) {
-          final isSelected = _selectedType == type;
-          return Padding(
-            padding: const EdgeInsets.only(right: 10),
-            child: ChoiceChip(
-              label: Text(type.name.toUpperCase()),
-              selected: isSelected,
-              onSelected: _isSaving ? null : (val) {
-                if (val) _onTypeChanged(type);
-              },
-              selectedColor: primaryColor,
-              backgroundColor: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
-              labelStyle: TextStyle(
-                color: isSelected ? bgColor : AppTheme.zinc500,
-                fontWeight: FontWeight.bold,
-                fontSize: 11,
-                letterSpacing: 1,
-              ),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-              side: BorderSide(color: isSelected ? primaryColor : (isDark ? AppTheme.zinc800 : AppTheme.zinc200)),
-              showCheckmark: false,
-            ),
-          );
-        }).toList(),
       ),
     );
   }
@@ -437,8 +396,8 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
                           border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
                         ),
                         child: Align(
-                          alignment: Alignment.topRight,
-                          child: GestureDetector(
+                           alignment: Alignment.topRight,
+                           child: GestureDetector(
                             onTap: _isSaving ? null : () => setState(() => _selectedImages.removeAt(idx)),
                             child: Container(
                               margin: const EdgeInsets.all(8),
@@ -542,7 +501,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
       child: SafeArea(
         top: false,
         child: CustomButton(
-          text: 'Save Note',
+          text: 'Update Note',
           onPressed: _canSave ? _handleSave : null,
           isLoading: _isSaving,
           backgroundColor: Theme.of(context).primaryColor,

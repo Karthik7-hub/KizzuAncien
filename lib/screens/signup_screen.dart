@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -22,10 +23,15 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final TextEditingController _passwordController = TextEditingController();
   String _gender = 'male';
   bool _isLoading = false;
+  Timer? _debounceTimer;
+  bool _isCheckingUsername = false;
+  bool _usernameExists = false;
 
   bool get _canSubmit {
     return _nameController.text.trim().isNotEmpty &&
            _usernameController.text.trim().length >= 3 &&
+           !_usernameExists &&
+           !_isCheckingUsername &&
            _emailController.text.trim().isNotEmpty &&
            RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(_emailController.text.trim()) &&
            _passwordController.text.trim().length >= 6;
@@ -35,15 +41,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
   void initState() {
     super.initState();
     _nameController.addListener(_updateState);
-    _usernameController.addListener(_updateState);
+    _usernameController.addListener(_onUsernameChanged);
     _emailController.addListener(_updateState);
     _passwordController.addListener(_updateState);
   }
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _nameController.removeListener(_updateState);
-    _usernameController.removeListener(_updateState);
+    _usernameController.removeListener(_onUsernameChanged);
     _emailController.removeListener(_updateState);
     _passwordController.removeListener(_updateState);
     _nameController.dispose();
@@ -54,6 +61,36 @@ class _SignUpScreenState extends State<SignUpScreen> {
   }
 
   void _updateState() => setState(() {});
+
+  void _onUsernameChanged() {
+    _updateState();
+    final username = _usernameController.text.trim();
+    if (_debounceTimer?.isActive ?? false) _debounceTimer?.cancel();
+    
+    if (username.length < 3) {
+      setState(() {
+        _usernameExists = false;
+        _isCheckingUsername = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _isCheckingUsername = true;
+    });
+
+    _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+      final authProvider = context.read<AuthProvider>();
+      final exists = await authProvider.checkUsername(username);
+      if (mounted && _usernameController.text.trim() == username) {
+        setState(() {
+          _usernameExists = exists;
+          _isCheckingUsername = false;
+        });
+      }
+    });
+  }
 
   void _handleSignUp() async {
     if (_isLoading || !_canSubmit) return;
@@ -125,23 +162,63 @@ class _SignUpScreenState extends State<SignUpScreen> {
               CustomTextField(
                 controller: _nameController,
                 hintText: 'Full Name',
+                enabled: !_isLoading,
               ),
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _usernameController,
                 hintText: 'Unique Username',
+                enabled: !_isLoading,
               ),
+              if (_usernameController.text.trim().length >= 3) ...[
+                const SizedBox(height: 6),
+                Padding(
+                  padding: const EdgeInsets.only(left: 4),
+                  child: Row(
+                    children: [
+                      if (_isCheckingUsername) ...[
+                        const SizedBox(
+                          width: 12,
+                          height: 12,
+                          child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.zinc500),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Checking availability...',
+                          style: TextStyle(color: AppTheme.zinc500, fontSize: 12),
+                        ),
+                      ] else if (_usernameExists) ...[
+                        const Icon(LucideIcons.xCircle, color: Colors.redAccent, size: 14),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Username is already taken',
+                          style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                        ),
+                      ] else ...[
+                        const Icon(LucideIcons.checkCircle, color: Colors.green, size: 14),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Username is available',
+                          style: TextStyle(color: Colors.green, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _emailController,
                 hintText: 'Email Address',
                 keyboardType: TextInputType.emailAddress,
+                enabled: !_isLoading,
               ),
               const SizedBox(height: 16),
               CustomTextField(
                 controller: _passwordController,
                 hintText: 'Strong Password',
                 obscureText: true,
+                enabled: !_isLoading,
               ),
               const SizedBox(height: 24),
               Text(
@@ -202,8 +279,10 @@ class _SignUpScreenState extends State<SignUpScreen> {
     final isSelected = _gender == value;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: () => setState(() => _gender = value),
-      child: AnimatedContainer(
+      onTap: _isLoading ? null : () => setState(() => _gender = value),
+      child: Opacity(
+        opacity: _isLoading ? 0.6 : 1.0,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
@@ -231,6 +310,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

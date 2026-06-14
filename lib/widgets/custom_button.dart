@@ -26,25 +26,29 @@ class CustomButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDisabled = isLoading || onPressed == null;
     return SizedBox(
       width: width ?? double.infinity,
       child: ElevatedButton(
-        onPressed: (isLoading || onPressed == null) ? null : () {
+        onPressed: isDisabled ? null : () {
           HapticFeedback.lightImpact();
           onPressed!();
         },
         style: ElevatedButton.styleFrom(
           backgroundColor: backgroundColor,
           foregroundColor: textColor,
-          disabledBackgroundColor: backgroundColor.withValues(alpha: 0.6),
-          disabledForegroundColor: textColor.withValues(alpha: 0.6),
+          disabledBackgroundColor: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
+          disabledForegroundColor: isDark ? AppTheme.zinc600 : AppTheme.zinc400,
           elevation: 0,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppTheme.borderRadius),
-            side: borderColor != null
-                ? BorderSide(color: borderColor!)
-                : (backgroundColor == AppTheme.black ? const BorderSide(color: AppTheme.zinc900) : BorderSide.none),
+            side: isDisabled
+                ? BorderSide(color: isDark ? AppTheme.zinc950 : AppTheme.zinc200)
+                : (borderColor != null
+                    ? BorderSide(color: borderColor!)
+                    : (backgroundColor == AppTheme.black ? const BorderSide(color: AppTheme.zinc900) : BorderSide.none)),
           ),
         ),
         child: isLoading

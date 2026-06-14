@@ -5,7 +5,6 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../providers/notification_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/avatar_widget.dart';
-import '../widgets/app_header.dart';
 import '../widgets/empty_state.dart';
 
 class NotificationsScreen extends StatefulWidget {
@@ -32,9 +31,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      appBar: const AppHeader(
-        title: 'Notifications',
-        showBackButton: true,
+      appBar: AppBar(
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(LucideIcons.chevronLeft, color: Theme.of(context).primaryColor),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Text(
+          'Notifications',
+          style: TextStyle(color: Theme.of(context).primaryColor, fontWeight: FontWeight.bold),
+        ),
       ),
       body: RefreshIndicator(
         onRefresh: () => notificationProvider.fetchNotifications(),

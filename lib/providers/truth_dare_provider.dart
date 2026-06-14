@@ -106,4 +106,11 @@ class TruthDareProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  void clear() {
+    _truths = [];
+    _dares = [];
+    _isLoading = false;
+    notifyListeners();
+  }
 }

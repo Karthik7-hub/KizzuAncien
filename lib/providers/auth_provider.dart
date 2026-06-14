@@ -9,6 +9,7 @@ import 'package:kizzu_ancien/utils/logger.dart';
 
 import 'package:google_sign_in/google_sign_in.dart';
 import '../utils/constants.dart';
+import '../utils/session_utils.dart';
 
 enum AuthStatus { authenticated, unauthenticated, offline }
 
@@ -146,7 +147,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile({String? name, String? profileImageUrl, String? gender}) async {
+  Future<void> updateProfile({String? name, String? profileImageUrl, String? gender, String? username}) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -154,6 +155,7 @@ class AuthProvider extends ChangeNotifier {
         if (name != null) 'name': name,
         if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
         if (gender != null) 'gender': gender,
+        if (username != null) 'username': username,
       });
       // The update endpoint returns the user object
       _user = User.fromJson(response.data);
@@ -169,6 +171,57 @@ class AuthProvider extends ChangeNotifier {
       rethrow;
     }
   }
+
+  Future<bool> checkUsername(String username, {String? excludeUserId}) async {
+    try {
+      final queryParams = {
+        'username': username,
+        if (excludeUserId != null) 'excludeUserId': excludeUserId,
+      };
+      final response = await _apiService.dio.get('/users/check-username', queryParameters: queryParams);
+      return response.data['exists'] ?? false;
+    } catch (e) {
+      AppLogger.error('Error checking username', e);
+      return false;
+    }
+  }
+
+  Future<void> deleteAccount() async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      await _apiService.dio.delete('/users/profile');
+      
+      // Clean up local Google sign out
+      try {
+        final GoogleSignIn googleSignIn = GoogleSignIn(
+          serverClientId: AppConstants.googleServerClientId,
+        );
+        if (await googleSignIn.isSignedIn()) {
+          await googleSignIn.signOut();
+          await googleSignIn.disconnect();
+        }
+      } catch (e) {
+        AppLogger.error('Google SignOut error during account deletion', e);
+      }
+
+      SessionUtils.clearAllData();
+      await _storage.deleteAll();
+      _user = null;
+      _status = AuthStatus.unauthenticated;
+      _isLoading = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      throw Exception(e.response?.data['message'] ?? 'Account deletion failed');
+    } catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
+    }
+  }
+
 
   Future<void> logout() async {
     try {
@@ -188,6 +241,8 @@ class AuthProvider extends ChangeNotifier {
     } catch (e) {
       AppLogger.error('Google SignOut error', e);
     }
+
+    SessionUtils.clearAllData();
 
     await _storage.deleteAll();
     _user = null;

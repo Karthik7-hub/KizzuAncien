@@ -174,8 +174,8 @@ exports.submitProof = async (req, res, next) => {
       return res.status(404).json({ message: 'Challenge not found' });
     }
 
-    if (challenge.status !== 'pending') {
-      return res.status(400).json({ message: 'Challenge is not in a pending state' });
+    if (challenge.status !== 'pending' && challenge.status !== 'expired' && challenge.status !== 'rejected') {
+      return res.status(400).json({ message: 'Challenge is not in a submittable state' });
     }
 
     let proofUrl = req.body.proofUrl;
@@ -264,7 +264,8 @@ async function handleReview(submission, status, req, res) {
   await challenge.save();
 
   if (status === 'approved') {
-    const points = 5;
+    const isUnderDeadline = new Date(submission.createdAt) <= new Date(challenge.deadline);
+    const points = isUnderDeadline ? 5 : 0;
 
     // Award relationship points
     const friendRel = await Friend.findOne({
@@ -276,10 +277,12 @@ async function handleReview(submission, status, req, res) {
     });
 
     if (friendRel) {
-      if (friendRel.requester.toString() === challenge.recipient.toString()) {
-        friendRel.pointsRequester += points;
-      } else {
-        friendRel.pointsRecipient += points;
+      if (points > 0) {
+        if (friendRel.requester.toString() === challenge.recipient.toString()) {
+          friendRel.pointsRequester += points;
+        } else {
+          friendRel.pointsRecipient += points;
+        }
       }
 
       const today = new Date().setHours(0,0,0,0);
@@ -287,9 +290,8 @@ async function handleReview(submission, status, req, res) {
 
       if (!lastUpdate || today > lastUpdate) {
         const yesterday = today - 86400000;
-        const twoDaysAgo = today - (86400000 * 2);
 
-        if (lastUpdate === yesterday || lastUpdate === twoDaysAgo) {
+        if (lastUpdate === yesterday) {
           friendRel.streak += 1;
         } else {
           friendRel.streak = 1;
@@ -332,13 +334,15 @@ async function handleReview(submission, status, req, res) {
       }
     }
 
-    await PointTransaction.create({
-      user: challenge.recipient,
-      amount: points,
-      type: 'challenge_reward',
-      relatedId: challenge._id,
-      description: `Reward for completing: ${challenge.title}`
-    });
+      if (points > 0) {
+        await PointTransaction.create({
+          user: challenge.recipient,
+          amount: points,
+          type: 'challenge_reward',
+          relatedId: challenge._id,
+          description: `Reward for completing: ${challenge.title}`
+        });
+      }
   }
 
   await createCappedNotification({

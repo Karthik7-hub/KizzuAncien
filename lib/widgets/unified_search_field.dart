@@ -30,6 +30,15 @@ class _UnifiedSearchFieldState extends State<UnifiedSearchField> {
   }
 
   @override
+  void didUpdateWidget(covariant UnifiedSearchField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.controller != oldWidget.controller) {
+      oldWidget.controller.removeListener(_onTextChanged);
+      widget.controller.addListener(_onTextChanged);
+    }
+  }
+
+  @override
   void dispose() {
     widget.controller.removeListener(_onTextChanged);
     super.dispose();

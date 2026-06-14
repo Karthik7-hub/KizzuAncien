@@ -129,4 +129,30 @@ class FriendProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  String getRelationshipStatus(String userId) {
+    if (_friends.any((u) => u.id == userId)) return 'friend';
+    if (_incomingRequests.any((r) => r['user'].id == userId)) return 'incoming';
+    if (_outgoingRequests.any((r) => r['user'].id == userId)) return 'outgoing';
+    return 'none';
+  }
+
+  String? getRequestId(String userId) {
+    for (var r in _incomingRequests) {
+      if (r['user'].id == userId) return r['id'] as String?;
+    }
+    for (var r in _outgoingRequests) {
+      if (r['user'].id == userId) return r['id'] as String?;
+    }
+    return null;
+  }
+
+  void clear() {
+    _friends = [];
+    _incomingRequests = [];
+    _outgoingRequests = [];
+    _searchResults = [];
+    _isLoading = false;
+    notifyListeners();
+  }
 }

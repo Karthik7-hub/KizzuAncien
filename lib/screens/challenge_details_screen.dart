@@ -446,7 +446,7 @@ class _ChallengeDetailsScreenState extends State<ChallengeDetailsScreen> {
     // The action area triggers:
     // - For Recipient: "Build Solution" (Workspace) when status is pending or rejected
     // - For Creator: "Review Submission" when status is submitted
-    final bool showRecipientPending = isRecipient && (challenge.status == 'pending' || challenge.status == 'rejected');
+    final bool showRecipientPending = isRecipient && (challenge.status == 'pending' || challenge.status == 'rejected' || challenge.status == 'expired');
     final bool showCreatorSubmitted = isCreator && challenge.status == 'submitted';
 
     if (!(showRecipientPending || showCreatorSubmitted)) {

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:lucide_icons/lucide_icons.dart';
@@ -67,16 +68,14 @@ class SettingsScreen extends StatelessWidget {
             LucideIcons.logOut,
             'Sign Out',
             textColor: Colors.redAccent,
-            onTap: () async {
-              HapticFeedback.mediumImpact();
-              await authProvider.logout();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const AuthScreen()),
-                  (route) => false,
-                );
-              }
-            },
+            onTap: () => _showSignOutDialog(context, authProvider),
+          ),
+          _buildSettingsTile(
+            context,
+            LucideIcons.trash2,
+            'Delete Account',
+            textColor: Colors.redAccent,
+            onTap: () => _showDeleteAccountDialog(context, authProvider),
           ),
         ],
       ),
@@ -135,8 +134,13 @@ class SettingsScreen extends StatelessWidget {
   void _showEditProfileDialog(BuildContext context, dynamic user) {
     if (user == null) return;
     final nameController = TextEditingController(text: user.name);
+    final usernameController = TextEditingController(text: user.username);
     String gender = user.gender;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    Timer? debounceTimer;
+    bool isChecking = false;
+    bool usernameExists = false;
 
     showModalBottomSheet(
       context: context,
@@ -144,68 +148,307 @@ class SettingsScreen extends StatelessWidget {
       backgroundColor: isDark ? AppTheme.zinc950 : AppTheme.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
       builder: (context) => StatefulBuilder(
-        builder: (context, setModalState) => Padding(
-          padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom,
-            left: 24,
-            right: 24,
-            top: 32,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Edit Profile', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? AppTheme.white : AppTheme.zinc950)),
-              const SizedBox(height: 24),
-              TextField(
-                controller: nameController,
-                style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950),
-                decoration: InputDecoration(
-                  labelText: 'Full Name',
-                  labelStyle: const TextStyle(color: AppTheme.zinc500),
-                  filled: true,
-                  fillColor: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16), 
-                    borderSide: isDark ? BorderSide.none : const BorderSide(color: AppTheme.zinc200),
+        builder: (context, setModalState) {
+          void onUsernameChanged() {
+            final username = usernameController.text.trim();
+            if (debounceTimer?.isActive ?? false) debounceTimer?.cancel();
+
+            if (username == user.username) {
+              setModalState(() {
+                usernameExists = false;
+                isChecking = false;
+              });
+              return;
+            }
+
+            if (username.length < 3) {
+              setModalState(() {
+                usernameExists = false;
+                isChecking = false;
+              });
+              return;
+            }
+
+            setModalState(() {
+              isChecking = true;
+            });
+
+            debounceTimer = Timer(const Duration(milliseconds: 500), () async {
+              final exists = await context.read<AuthProvider>().checkUsername(username, excludeUserId: user.id);
+              if (usernameController.text.trim() == username) {
+                setModalState(() {
+                  usernameExists = exists;
+                  isChecking = false;
+                });
+              }
+            });
+          }
+
+          final bool canSave = nameController.text.trim().isNotEmpty &&
+              usernameController.text.trim().length >= 3 &&
+              !usernameExists &&
+              !isChecking;
+
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom,
+              left: 24,
+              right: 24,
+              top: 32,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Edit Profile', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: isDark ? AppTheme.white : AppTheme.zinc950)),
+                const SizedBox(height: 24),
+                TextField(
+                  controller: nameController,
+                  style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950),
+                  onChanged: (val) => setModalState(() {}),
+                  decoration: InputDecoration(
+                    labelText: 'Full Name',
+                    labelStyle: const TextStyle(color: AppTheme.zinc500),
+                    filled: true,
+                    fillColor: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16), 
+                      borderSide: isDark ? BorderSide.none : const BorderSide(color: AppTheme.zinc200),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 20),
-              Text('GENDER', style: TextStyle(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildGenderOption(context, 'male', LucideIcons.user, gender == 'male', () => setModalState(() => gender = 'male')),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: usernameController,
+                  style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950),
+                  onChanged: (val) => onUsernameChanged(),
+                  decoration: InputDecoration(
+                    labelText: 'Username',
+                    labelStyle: const TextStyle(color: AppTheme.zinc500),
+                    filled: true,
+                    fillColor: isDark ? AppTheme.zinc900 : AppTheme.zinc100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16), 
+                      borderSide: isDark ? BorderSide.none : const BorderSide(color: AppTheme.zinc200),
+                    ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildGenderOption(context, 'female', LucideIcons.user2, gender == 'female', () => setModalState(() => gender = 'female')),
+                ),
+                if (usernameController.text.trim().length >= 3 && usernameController.text.trim() != user.username) ...[
+                  const SizedBox(height: 6),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Row(
+                      children: [
+                        if (isChecking) ...[
+                          const SizedBox(
+                            width: 12,
+                            height: 12,
+                            child: CircularProgressIndicator(strokeWidth: 1.5, color: AppTheme.zinc500),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Checking availability...',
+                            style: TextStyle(color: AppTheme.zinc500, fontSize: 12),
+                          ),
+                        ] else if (usernameExists) ...[
+                          const Icon(LucideIcons.xCircle, color: Colors.redAccent, size: 14),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Username is already taken',
+                            style: TextStyle(color: Colors.redAccent, fontSize: 12),
+                          ),
+                        ] else ...[
+                          const Icon(LucideIcons.checkCircle, color: Colors.green, size: 14),
+                          const SizedBox(width: 8),
+                          const Text(
+                            'Username is available',
+                            style: TextStyle(color: Colors.green, fontSize: 12),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
-              ),
-              const SizedBox(height: 32),
-              SizedBox(
-                width: double.infinity,
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    await context.read<AuthProvider>().updateProfile(name: nameController.text.trim(), gender: gender);
-                    if (context.mounted) Navigator.pop(context);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppTheme.white : AppTheme.black,
-                    foregroundColor: isDark ? AppTheme.black : AppTheme.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                  child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 20),
+                Text('GENDER', style: TextStyle(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildGenderOption(context, 'male', LucideIcons.user, gender == 'male', () => setModalState(() => gender = 'male')),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _buildGenderOption(context, 'female', LucideIcons.user2, gender == 'female', () => setModalState(() => gender = 'female')),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 40),
-            ],
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: double.infinity,
+                  height: 56,
+                  child: ElevatedButton(
+                    onPressed: !canSave ? null : () async {
+                      try {
+                        await context.read<AuthProvider>().updateProfile(
+                          name: nameController.text.trim(),
+                          username: usernameController.text.trim(),
+                          gender: gender,
+                        );
+                        if (context.mounted) Navigator.pop(context);
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString().replaceAll('Exception: ', '')),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark ? AppTheme.white : AppTheme.black,
+                      foregroundColor: isDark ? AppTheme.black : AppTheme.white,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                    ),
+                    child: const Text('Save Changes', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSignOutDialog(BuildContext context, AuthProvider authProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.zinc950 : AppTheme.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+        ),
+        title: Text(
+          'Sign Out',
+          style: TextStyle(
+            color: isDark ? AppTheme.white : AppTheme.zinc950,
+            fontWeight: FontWeight.bold,
           ),
         ),
+        content: Text(
+          'Are you sure you want to sign out of KizzuAncien?',
+          style: TextStyle(
+            color: isDark ? AppTheme.zinc400 : AppTheme.zinc600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.zinc500 : AppTheme.zinc600,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              HapticFeedback.mediumImpact();
+              await authProvider.logout();
+              if (context.mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const AuthScreen()),
+                  (route) => false,
+                );
+              }
+            },
+            child: const Text(
+              'Sign Out',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteAccountDialog(BuildContext context, AuthProvider authProvider) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.zinc950 : AppTheme.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(24),
+          side: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+        ),
+        title: Text(
+          'Delete Account',
+          style: TextStyle(
+            color: isDark ? AppTheme.white : AppTheme.zinc950,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to delete your account? This action is permanent and will delete all your progress, friends, challenges, and notes.',
+          style: TextStyle(
+            color: isDark ? AppTheme.zinc400 : AppTheme.zinc600,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.zinc500 : AppTheme.zinc600,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              HapticFeedback.mediumImpact();
+              try {
+                await authProvider.deleteAccount();
+                if (context.mounted) {
+                  Navigator.of(context).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (context) => const AuthScreen()),
+                    (route) => false,
+                  );
+                }
+              } catch (e) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to delete account: $e'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text(
+              'Delete Permanent',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -100,6 +100,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
               CustomTextField(
                 controller: _usernameController,
                 hintText: 'Username',
+                enabled: !_isLoading,
               ),
               const SizedBox(height: 32),
               const Text(
@@ -133,8 +134,10 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
   Widget _buildGenderOption(String value, IconData icon) {
     final isSelected = _gender == value;
     return GestureDetector(
-      onTap: () => setState(() => _gender = value),
-      child: AnimatedContainer(
+      onTap: _isLoading ? null : () => setState(() => _gender = value),
+      child: Opacity(
+        opacity: _isLoading ? 0.6 : 1.0,
+        child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
@@ -158,6 +161,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

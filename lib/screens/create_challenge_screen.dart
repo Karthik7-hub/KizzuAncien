@@ -119,10 +119,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
             _buildFriendSelection(),
             const SizedBox(height: 32),
             _buildLabel('CHALLENGE TITLE'),
-            CustomTextField(controller: _titleController, hintText: 'e.g. Morning 5km Run'),
+            CustomTextField(controller: _titleController, hintText: 'e.g. Morning 5km Run', enabled: !_isLaunching),
             const SizedBox(height: 24),
             _buildLabel('DETAILS'),
-            CustomTextField(controller: _descController, hintText: 'Explain the rules...', maxLines: 4),
+            CustomTextField(controller: _descController, hintText: 'Explain the rules...', maxLines: 4, enabled: !_isLaunching),
             const SizedBox(height: 32),
             Row(
               children: [
@@ -139,7 +139,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                           DropdownMenuItem(value: '3days', child: Text('3 Days')),
                           DropdownMenuItem(value: '1week', child: Text('1 Week')),
                         ],
-                        onChanged: (val) => setState(() => _deadline = val!),
+                        onChanged: _isLaunching ? null : (val) => setState(() => _deadline = val!),
                       ),
                     ],
                   ),
@@ -159,7 +159,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                           DropdownMenuItem(value: 'link', child: Text('Link')),
                           DropdownMenuItem(value: 'any', child: Text('Any')),
                         ],
-                        onChanged: (val) => setState(() => _proofType = val!),
+                        onChanged: _isLaunching ? null : (val) => setState(() => _proofType = val!),
                       ),
                     ],
                   ),
@@ -230,7 +230,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
     );
   }
 
-  Widget _buildDropdown({required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?> onChanged}) {
+  Widget _buildDropdown({required String value, required List<DropdownMenuItem<String>> items, required ValueChanged<String?>? onChanged}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -267,7 +267,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
               side: BorderSide(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
               label: Text(f.name, style: TextStyle(color: Theme.of(context).primaryColor, fontSize: 12)),
               deleteIcon: const Icon(LucideIcons.x, size: 14, color: AppTheme.zinc500),
-              onDeleted: () => setState(() => _selectedFriends.remove(f)),
+              onDeleted: _isLaunching ? null : () => setState(() => _selectedFriends.remove(f)),
               avatar: AvatarWidget(user: f, size: 20, showBorder: false),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             )).toList(),
@@ -275,7 +275,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
           const SizedBox(height: 12),
         ],
         GestureDetector(
-          onTap: () => _showFriendPicker(),
+          onTap: _isLaunching ? null : () => _showFriendPicker(),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(

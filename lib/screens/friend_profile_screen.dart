@@ -36,27 +36,59 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
   String _relationshipStatus = 'NOT_FRIENDS';
   String? _requestId;
   int _relationshipPoints = 0;
+  int _friendRelationshipPoints = 0;
+  int _friendTotalPoints = 0;
   bool _isActionLoading = false;
+
+  User? _profileUser;
+  int _sharedStreak = 0;
+  int _sharedLongestStreak = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // Initialize immediately using local provider data to prevent brief flickering
+    final friendProvider = context.read<FriendProvider>();
+    final isFriend = friendProvider.friends.any((f) => f.id == widget.friend.id);
+    final isPendingSent = friendProvider.outgoingRequests.any((r) => r['user'].id == widget.friend.id);
+    final isPendingReceived = friendProvider.incomingRequests.any((r) => r['user'].id == widget.friend.id);
+
+    if (isFriend) {
+      _relationshipStatus = 'FRIENDS';
+    } else if (isPendingSent) {
+      _relationshipStatus = 'PENDING_SENT';
+      _requestId = friendProvider.getRequestId(widget.friend.id);
+    } else if (isPendingReceived) {
+      _relationshipStatus = 'PENDING_RECEIVED';
+      _requestId = friendProvider.getRequestId(widget.friend.id);
+    } else {
+      _relationshipStatus = 'NOT_FRIENDS';
+    }
+
     _loadData();
   }
 
   Future<void> _loadData() async {
     final friendProvider = context.read<FriendProvider>();
     final challengeProvider = context.read<ChallengeProvider>();
-    
+
     final profileData = await friendProvider.fetchUserProfile(widget.friend.id);
     final challenges = await challengeProvider.fetchSharedChallenges(widget.friend.id);
-    
+
     if (mounted) {
       setState(() {
         _relationshipStatus = profileData['relationshipStatus'] ?? 'NOT_FRIENDS';
         _requestId = profileData['requestId'];
         _relationshipPoints = profileData['relationshipPoints'] ?? 0;
+        _friendRelationshipPoints = profileData['friendRelationshipPoints'] ?? 0;
+        _friendTotalPoints = profileData['friendTotalPoints'] ?? 0;
+        _sharedStreak = profileData['sharedStreak'] ?? 0;
+        _sharedLongestStreak = profileData['sharedLongestStreak'] ?? 0;
+        if (profileData['user'] != null) {
+          _profileUser = User.fromJson(profileData['user']);
+        }
         _history = challenges;
         _isLoading = false;
       });
@@ -134,7 +166,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         headerSliverBuilder: (context, innerBoxIsScrolled) => [
           SliverAppBar(
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-            expandedHeight: 280,
+            expandedHeight: _relationshipStatus == 'FRIENDS' ? 400 : 220,
             pinned: true,
             leading: IconButton(
               icon: Icon(LucideIcons.chevronLeft, color: primaryColor),
@@ -142,22 +174,17 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                padding: const EdgeInsets.only(top: 80),
+                padding: const EdgeInsets.only(top: 70),
                 child: Column(
                   children: [
-                    AvatarWidget(user: currentFriend, size: 80, showBorder: true),
-                    const SizedBox(height: 16),
+                    AvatarWidget(user: currentFriend, size: 70, showBorder: true),
+                    const SizedBox(height: 8),
                     Text(currentFriend.name, style: textTheme.displayMedium),
                     Text('@${currentFriend.username}', style: textTheme.bodyMedium),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildMiniStat('${currentFriend.sharedStreak ?? 0}', 'STREAK', LucideIcons.zap, primaryColor),
-                        const SizedBox(width: 24),
-                        _buildMiniStat('$_relationshipPoints', 'POINTS', LucideIcons.award, primaryColor),
-                      ],
-                    ),
+                    if (_relationshipStatus == 'FRIENDS') ...[
+                      const SizedBox(height: 16),
+                      _buildProfileStatsCard(currentFriend, _sharedStreak, _sharedLongestStreak),
+                    ],
                     if (currentFriend.lastChallengeCompletedAt != null) ...[
                       const SizedBox(height: 12),
                       Text(
@@ -191,7 +218,7 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildChallengesTab(user),
+            _buildChallengesTab(user, currentFriend),
             _buildActionsTab(),
           ],
         ),
@@ -199,22 +226,9 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     );
   }
 
-  Widget _buildMiniStat(String value, String label, IconData icon, Color color) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(icon, size: 14, color: color),
-            const SizedBox(width: 4),
-            Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Theme.of(context).primaryColor)),
-          ],
-        ),
-        Text(label, style: TextStyle(fontSize: 10, color: Theme.of(context).textTheme.labelSmall?.color, fontWeight: FontWeight.bold)),
-      ],
-    );
-  }
 
-  Widget _buildChallengesTab(User? user) {
+
+  Widget _buildChallengesTab(User? user, User currentFriend) {
     final primaryColor = Theme.of(context).primaryColor;
     if (_isLoading) {
       return Center(child: CircularProgressIndicator(color: primaryColor, strokeWidth: 2));
@@ -256,6 +270,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         .where((c) => c.creator.id == user?.id && c.status == 'submitted')
         .toList();
 
+    final awaitingReview = filtered
+        .where((c) => c.recipient.id == user?.id && c.status == 'submitted')
+        .toList();
+
     final myActive = filtered
         .where((c) => c.recipient.id == user?.id && c.status == 'pending')
         .toList();
@@ -285,6 +303,16 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
               _buildSectionSubHeader('PENDING REVIEW', color: primaryColor),
               const SizedBox(height: 16),
               ...pendingReview.map((c) => Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: ChallengeCard(challenge: c),
+              )),
+              const SizedBox(height: 32),
+            ],
+
+            if (awaitingReview.isNotEmpty) ...[
+              _buildSectionSubHeader('AWAITING REVIEW', color: Colors.blueAccent),
+              const SizedBox(height: 16),
+              ...awaitingReview.map((c) => Padding(
                 padding: const EdgeInsets.only(bottom: 16),
                 child: ChallengeCard(challenge: c),
               )),
@@ -412,6 +440,10 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
     final bgColor = Theme.of(context).scaffoldBackgroundColor;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
+    if (_isLoading) {
+      return Center(child: CircularProgressIndicator(color: primaryColor, strokeWidth: 2));
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(AppTheme.padding * 1.5),
       child: Column(
@@ -532,6 +564,83 @@ class _FriendProfileScreenState extends State<FriendProfileScreen> with SingleTi
         textColor: fg,
         icon: Icon(icon, size: 20, color: fg),
       ),
+    );
+  }
+
+  Widget _buildProfileStatsCard(User friend, int sharedStreak, int sharedLongestStreak) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.zinc950 : AppTheme.white,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatDetailItem('$sharedStreak', 'Current Streak', LucideIcons.flame, Colors.amber),
+              _buildStatDivider(),
+              _buildStatDetailItem('$sharedLongestStreak', 'Shared Record', LucideIcons.flame, Colors.orangeAccent),
+              _buildStatDivider(),
+              _buildStatDetailItem('${_profileUser?.longestStreak ?? friend.longestStreak}', 'Lifetime Record', LucideIcons.flame, Colors.deepOrange),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Divider(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200, height: 1),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildStatDetailItem('$_relationshipPoints', 'My Points', LucideIcons.sparkles, Colors.green),
+              _buildStatDivider(),
+              _buildStatDetailItem('$_friendRelationshipPoints', 'Their Points', LucideIcons.award, Colors.indigo),
+              _buildStatDivider(),
+              _buildStatDetailItem('$_friendTotalPoints', 'Total Points', LucideIcons.trophy, Colors.purple),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatDivider() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(width: 1, height: 32, color: isDark ? AppTheme.zinc900 : AppTheme.zinc200);
+  }
+
+  Widget _buildStatDetailItem(String value, String label, IconData icon, Color color) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: color),
+            const SizedBox(width: 4),
+            Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                color: Theme.of(context).primaryColor,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).textTheme.labelSmall?.color,
+          ),
+        ),
+      ],
     );
   }
 }

@@ -188,7 +188,14 @@ class ChallengeProvider extends ChangeNotifier {
           'files': multipartFiles,
         });
 
-        response = await _apiService.dio.post('/challenges/$challengeId/notes', data: formData);
+        response = await _apiService.dio.post(
+          '/challenges/$challengeId/notes',
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
+          ),
+        );
       } else {
         response = await _apiService.dio.post('/challenges/$challengeId/notes', data: noteData);
       }
@@ -208,6 +215,11 @@ class ChallengeProvider extends ChangeNotifier {
   }
 
   Future<bool> updateNote(String challengeId, String noteId, Map<String, dynamic> noteData, {List<File>? files}) async {
+    AppLogger.info('updateNote: challengeId=$challengeId, noteId=$noteId, noteData=$noteData');
+    if (challengeId.trim().isEmpty || noteId.trim().isEmpty) {
+      AppLogger.error('updateNote failed: challengeId or noteId is empty. challengeId="$challengeId", noteId="$noteId"');
+      return false;
+    }
     try {
       Response response;
       if (files != null && files.isNotEmpty) {
@@ -226,7 +238,14 @@ class ChallengeProvider extends ChangeNotifier {
           'files': multipartFiles,
         });
 
-        response = await _apiService.dio.put('/challenges/$challengeId/notes/$noteId', data: formData);
+        response = await _apiService.dio.put(
+          '/challenges/$challengeId/notes/$noteId',
+          data: formData,
+          options: Options(
+            sendTimeout: const Duration(seconds: 60),
+            receiveTimeout: const Duration(seconds: 60),
+          ),
+        );
       } else {
         response = await _apiService.dio.put('/challenges/$challengeId/notes/$noteId', data: noteData);
       }
@@ -241,12 +260,20 @@ class ChallengeProvider extends ChangeNotifier {
       notifyListeners();
       return true;
     } catch (e) {
-      AppLogger.error('Error updating note', e);
+      if (e is DioException) {
+        AppLogger.error('Error updating note. Response data: ${e.response?.data}', e);
+      } else {
+        AppLogger.error('Error updating note', e);
+      }
       return false;
     }
   }
 
   Future<bool> deleteNote(String challengeId, String noteId) async {
+    if (challengeId.trim().isEmpty || noteId.trim().isEmpty) {
+      AppLogger.error('deleteNote failed: challengeId or noteId is empty. challengeId="$challengeId", noteId="$noteId"');
+      return false;
+    }
     try {
       await _apiService.dio.delete('/challenges/$challengeId/notes/$noteId');
       if (_challengeNotes[challengeId] != null) {
@@ -258,6 +285,14 @@ class ChallengeProvider extends ChangeNotifier {
       AppLogger.error('Error deleting note', e);
       return false;
     }
+  }
+
+  void clear() {
+    _challenges = [];
+    _challengeNotes.clear();
+    _challengeMessages.clear();
+    _isLoading = false;
+    notifyListeners();
   }
 
   // Discussion / Messages

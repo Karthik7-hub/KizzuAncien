@@ -26,8 +26,8 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   bool _isKeyboardOpen = false;
 
   // Synchronized animation config — used by navbar indicator
-  static const Duration _navDuration = Duration(milliseconds: 350);
-  static const Curve _navCurve = Curves.easeOutBack;
+  static const Duration _navDuration = Duration(milliseconds: 500);
+  static const Curve _navCurve = ElasticOutCurve(0.8);
 
   final List<Widget> _screens = const [
     HomeScreen(),
@@ -129,13 +129,15 @@ class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
               children: _screens,
             ),
             AnimatedPositioned(
-              duration: const Duration(milliseconds: 250),
+              duration: const Duration(milliseconds: 350),
               curve: Curves.easeOutCubic,
               bottom: isKeyboardOpen ? -120.0 : 0.0,
               left: 0,
               right: 0,
               child: SafeArea(
-                child: _SlidingNavbar(onTabTapped: _onTabTapped),
+                child: RepaintBoundary(
+                  child: _SlidingNavbar(onTabTapped: _onTabTapped),
+                ),
               ),
             ),
           ],

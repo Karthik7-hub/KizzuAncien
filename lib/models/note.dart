@@ -30,7 +30,7 @@ class Note {
   factory Note.fromJson(Map<String, dynamic> json) {
     return Note(
       id: json['_id'] ?? json['id'] ?? '',
-      challengeId: json['challengeId'] ?? '',
+      challengeId: json['challenge'] ?? json['challengeId'] ?? '',
       title: json['title'] ?? '',
       description: json['description'],
       type: _parseNoteType(json['type']),

@@ -12,6 +12,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/avatar_widget.dart';
 import '../widgets/section_header.dart';
 import 'create_note_screen.dart';
+import 'edit_note_screen.dart';
 import 'note_viewer_screen.dart';
 import 'submission_screen.dart';
 import '../widgets/custom_button.dart';
@@ -351,9 +352,9 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (_) => CreateNoteScreen(
+              builder: (_) => EditNoteScreen(
                 challengeId: widget.challenge.id,
-                noteToEdit: note,
+                note: note,
               ),
             ),
           );
@@ -414,7 +415,7 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
   }
 
   Widget _buildWorkspaceActionArea(Challenge challenge, bool isRecipient) {
-    final bool showSubmissionAction = isRecipient && (challenge.status == 'pending' || challenge.status == 'rejected');
+    final bool showSubmissionAction = isRecipient && (challenge.status == 'pending' || challenge.status == 'rejected' || challenge.status == 'expired');
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(

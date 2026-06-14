@@ -95,6 +95,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
                     controller: _commentController,
                     hintText: 'Describe your final answer or solution...',
                     maxLines: 4,
+                    enabled: !_isSubmitting,
                   ),
                   const SizedBox(height: 32),
                   const FormLabel(
@@ -142,7 +143,7 @@ class _SubmissionScreenState extends State<SubmissionScreen> {
   Widget _buildSelectableNoteItem(Note note, bool isSelected) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: () {
+      onTap: _isSubmitting ? null : () {
         setState(() {
           if (isSelected) {
             _selectedNoteIds.remove(note.id);

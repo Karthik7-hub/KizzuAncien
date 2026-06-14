@@ -67,6 +67,16 @@ exports.updateProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
     if (user) {
+      if (req.body.username && req.body.username !== user.username) {
+        const usernameExists = await User.findOne({
+          username: { $regex: new RegExp(`^${req.body.username}$`, 'i') },
+          _id: { $ne: user._id }
+        });
+        if (usernameExists) {
+          return res.status(400).json({ message: 'Username is already taken' });
+        }
+        user.username = req.body.username;
+      }
       user.name = req.body.name || user.name;
       user.profileImageUrl = req.body.profileImageUrl || user.profileImageUrl;
       if (req.body.gender) {
@@ -145,11 +155,21 @@ exports.getUserProfile = async (req, res, next) => {
       }
     }
 
+    const friendPointsEarnedResult = await PointTransaction.aggregate([
+      { $match: { user: user._id, amount: { $gt: 0 } } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    const friendTotalPoints = friendPointsEarnedResult[0]?.total || 0;
+
     res.json({
       user,
       relationshipStatus,
       requestId: relationship ? relationship._id : null,
-      relationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRequester : relationship.pointsRecipient) : 0
+      relationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRequester : relationship.pointsRecipient) : 0,
+      friendRelationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRecipient : relationship.pointsRequester) : 0,
+      friendTotalPoints,
+      sharedStreak: relationship ? relationship.streak : 0,
+      sharedLongestStreak: relationship ? relationship.longestStreak : 0
     });
   } catch (error) {
     next(error);
@@ -169,6 +189,81 @@ exports.searchUsers = async (req, res, next) => {
       .select('name username profileImageUrl gender avatarType streak')
       .limit(10);
     res.json(users);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.checkUsernameAvailability = async (req, res, next) => {
+  try {
+    const { username, excludeUserId } = req.query;
+    if (!username) {
+      return res.status(400).json({ message: 'Username parameter is required' });
+    }
+    const query = { username: { $regex: new RegExp(`^${username}$`, 'i') } };
+    if (excludeUserId) {
+      query._id = { $ne: excludeUserId };
+    }
+    const user = await User.findOne(query);
+    res.json({ exists: !!user });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAccount = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // Load additional models dynamically to avoid import circular dependencies or clutter
+    const ChallengeSubmission = require('../models/ChallengeSubmission');
+    const Note = require('../models/Note');
+    const Notification = require('../models/Notification');
+    const Truth = require('../models/Truth');
+    const Dare = require('../models/Dare');
+    const Message = require('../models/Message');
+
+    // Delete friendships
+    await Friend.deleteMany({
+      $or: [{ requester: userId }, { recipient: userId }]
+    });
+
+    // Delete challenges where user is creator or recipient
+    await Challenge.deleteMany({
+      $or: [{ creator: userId }, { recipient: userId }]
+    });
+
+    // Delete submissions
+    await ChallengeSubmission.deleteMany({ submitter: userId });
+
+    // Delete notes
+    await Note.deleteMany({ user: userId });
+
+    // Delete notifications
+    await Notification.deleteMany({
+      $or: [{ sender: userId }, { recipient: userId }]
+    });
+
+    // Delete point transactions
+    await PointTransaction.deleteMany({ user: userId });
+
+    // Delete truth & dares
+    await Truth.deleteMany({
+      $or: [{ sender: userId }, { recipient: userId }]
+    });
+    await Dare.deleteMany({
+      $or: [{ sender: userId }, { recipient: userId }]
+    });
+
+    // Delete message history
+    await Message.deleteMany({
+      $or: [{ sender: userId }, { recipient: userId }]
+    });
+
+    // Finally delete User document
+    await User.findByIdAndDelete(userId);
+
+    res.json({ message: 'Account deleted successfully' });
   } catch (error) {
     next(error);
   }

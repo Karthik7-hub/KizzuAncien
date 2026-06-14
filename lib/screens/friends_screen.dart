@@ -142,7 +142,19 @@ class _FriendsScreenState extends State<FriendsScreen> with AutomaticKeepAliveCl
         delegate: SliverChildBuilderDelegate(
           (context, index) {
             final user = provider.searchResults[index];
-            return _buildUserItem(user, type: 'search');
+            final relStatus = provider.getRelationshipStatus(user.id);
+            final reqId = provider.getRequestId(user.id);
+
+            String displayType = 'search';
+            if (relStatus == 'friend') {
+              displayType = 'friend';
+            } else if (relStatus == 'incoming') {
+              displayType = 'incoming';
+            } else if (relStatus == 'outgoing') {
+              displayType = 'outgoing';
+            }
+
+            return _buildUserItem(user, type: displayType, requestId: reqId);
           },
           childCount: provider.searchResults.length,
         ),

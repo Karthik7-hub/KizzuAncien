@@ -219,12 +219,14 @@ class _AuthScreenState extends State<AuthScreen> {
                 controller: _emailController,
                 hintText: 'Email Address',
                 keyboardType: TextInputType.emailAddress,
+                enabled: !_isAnyLoading,
               ),
               const SizedBox(height: 12),
               CustomTextField(
                 controller: _passwordController,
                 hintText: 'Password',
                 obscureText: true,
+                enabled: !_isAnyLoading,
               ),
               const SizedBox(height: 32),
               Column(

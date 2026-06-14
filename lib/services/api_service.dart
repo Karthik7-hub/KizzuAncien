@@ -118,4 +118,9 @@ class ApiService {
       },
     ));
   }
+
+  void reset() {
+    _isRefreshing = false;
+    _refreshQueue.clear();
+  }
 }

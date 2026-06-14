@@ -11,6 +11,7 @@ import '../models/challenge.dart';
 import '../widgets/app_header.dart';
 import '../widgets/empty_state.dart';
 
+import '../widgets/unified_challenge_tile.dart';
 import '../widgets/unified_search_field.dart';
 
 class AllChallengesScreen extends StatefulWidget {
@@ -118,10 +119,7 @@ class _AllChallengesScreenState extends State<AllChallengesScreen> with Automati
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: ChallengeCard(challenge: filtered[index]),
-                        );
+                        return UnifiedChallengeTile(challenge: filtered[index]);
                       },
                     ),
             ),
