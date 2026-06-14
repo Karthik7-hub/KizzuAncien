@@ -1,7 +1,7 @@
 const Friend = require('../models/Friend');
 const User = require('../models/User');
 const Challenge = require('../models/Challenge');
-const Notification = require('../models/Notification');
+const { createCappedNotification } = require('../utils/notificationUtils');
 const { sendPushNotification } = require('../services/firebaseService');
 
 exports.sendRequest = async (req, res, next) => {
@@ -27,7 +27,7 @@ exports.sendRequest = async (req, res, next) => {
       recipient: recipientId
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'friend_request',
@@ -65,7 +65,7 @@ exports.respondToRequest = async (req, res, next) => {
     await friendRequest.save();
 
     if (status === 'accepted') {
-      await Notification.create({
+      await createCappedNotification({
         recipient: friendRequest.requester,
         sender: req.user._id,
         type: 'friend_request_accepted',
@@ -108,6 +108,24 @@ exports.getFriends = async (req, res, next) => {
       const friend = isRequester ? f.recipient.toObject() : f.requester.toObject();
       const friendId = friend._id;
 
+      const todayStart = new Date().setHours(0,0,0,0);
+      const yesterdayStart = todayStart - 86400000;
+      if (f.streak > 0 && f.lastStreakUpdate && new Date(f.lastStreakUpdate) < new Date(yesterdayStart)) {
+        f.streak = 0;
+        await f.save();
+
+        const updateStreakForUser = async (uId) => {
+          const allUserFriendships = await Friend.find({
+            status: 'accepted',
+            $or: [{ requester: uId }, { recipient: uId }]
+          });
+          const bestUserStreak = Math.max(...allUserFriendships.map(fs => fs.streak), 0);
+          await User.findByIdAndUpdate(uId, { $set: { currentStreak: bestUserStreak } });
+        };
+        await updateStreakForUser(userId);
+        await updateStreakForUser(friendId);
+      }
+
       const lastChallenge = await Challenge.findOne({
         status: 'approved',
         $or: [
@@ -121,7 +139,8 @@ exports.getFriends = async (req, res, next) => {
         sharedStreak: f.streak,
         longestSharedStreak: f.longestStreak,
         lastStreakUpdate: f.lastStreakUpdate,
-        lastChallengeCompletedAt: lastChallenge ? lastChallenge.updatedAt : null
+        lastChallengeCompletedAt: lastChallenge ? lastChallenge.updatedAt : null,
+        relationshipPoints: isRequester ? f.pointsRequester : f.pointsRecipient
       };
     }));
 

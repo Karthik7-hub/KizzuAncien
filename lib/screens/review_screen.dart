@@ -2,12 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:kizzu_ancien/models/challenge.dart';
-import 'package:kizzu_ancien/providers/challenge_provider.dart';
-import 'package:kizzu_ancien/theme/app_theme.dart';
-import 'package:kizzu_ancien/widgets/custom_button.dart';
+import '../models/challenge.dart';
+import '../models/note.dart';
+import '../providers/challenge_provider.dart';
+import '../theme/app_theme.dart';
+import '../widgets/custom_button.dart';
 import '../widgets/avatar_widget.dart';
-import '../utils/logger.dart';
+import '../widgets/app_header.dart';
+import '../widgets/app_card.dart';
+import '../widgets/section_header.dart';
+import '../widgets/note_preview_card.dart';
+import 'note_viewer_screen.dart';
+import 'discussion_screen.dart';
 
 class ReviewScreen extends StatefulWidget {
   final Challenge challenge;
@@ -20,8 +26,7 @@ class ReviewScreen extends StatefulWidget {
 class _ReviewScreenState extends State<ReviewScreen> {
   Map<String, dynamic>? _submission;
   bool _isDataLoading = true;
-  bool _isVerifying = false;
-  bool _isDeclining = false;
+  bool _isReviewing = false;
   String? _errorMessage;
 
   @override
@@ -52,30 +57,52 @@ class _ReviewScreenState extends State<ReviewScreen> {
     }
   }
 
+  Future<void> _handleReview(String status) async {
+    if (_submission == null || _isReviewing) return;
+    
+    setState(() => _isReviewing = true);
+    
+    final submissionId = _submission!['_id'] as String;
+    final provider = context.read<ChallengeProvider>();
+    final navigator = Navigator.of(context);
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
+    final success = await provider.reviewSubmission(submissionId, status);
+    
+    if (mounted) {
+      setState(() => _isReviewing = false);
+      if (success) {
+        scaffoldMessenger.showSnackBar(
+          SnackBar(
+            content: Text(status == 'approved' ? 'Solution approved!' : 'Changes requested.'),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        navigator.pop();
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Failed to submit review. Please try again.'), backgroundColor: Colors.redAccent),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.black,
-      appBar: AppBar(
-        backgroundColor: AppTheme.black,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.chevronLeft, color: AppTheme.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Verification',
-          style: TextStyle(color: AppTheme.white, fontSize: 18, fontWeight: FontWeight.bold),
-        ),
-        centerTitle: true,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      appBar: const AppHeader(
+        title: 'Review Submission',
+        showBackButton: true,
       ),
       body: _buildBody(),
     );
   }
 
   Widget _buildBody() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_isDataLoading) {
-      return const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2));
+      return Center(child: CircularProgressIndicator(color: isDark ? AppTheme.white : AppTheme.black, strokeWidth: 2));
     }
 
     if (_errorMessage != null) {
@@ -85,21 +112,26 @@ class _ReviewScreenState extends State<ReviewScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(LucideIcons.alertCircle, color: Colors.redAccent, size: 48),
+              const Icon(LucideIcons.alertCircle, color: AppTheme.accent, size: 48),
               const SizedBox(height: 16),
-              Text(_errorMessage!, style: const TextStyle(color: AppTheme.zinc400)),
+              Text(_errorMessage!, style: TextStyle(color: isDark ? AppTheme.zinc400 : AppTheme.zinc600)),
               const SizedBox(height: 24),
               CustomButton(
                 text: 'Go Back',
                 onPressed: () => Navigator.pop(context),
-                backgroundColor: AppTheme.zinc900,
-                textColor: AppTheme.white,
+                backgroundColor: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
+                textColor: isDark ? AppTheme.white : AppTheme.black,
               ),
             ],
           ),
         ),
       );
     }
+
+    final selectedNotesJson = _submission?['selectedNotes'] as List?;
+    final List<Note> selectedNotes = selectedNotesJson != null
+        ? selectedNotesJson.map((n) => Note.fromJson(n)).toList()
+        : [];
 
     return Column(
       children: [
@@ -110,15 +142,14 @@ class _ReviewScreenState extends State<ReviewScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _buildHeaderCard(),
-                const SizedBox(height: 32),
-                const Padding(
-                  padding: EdgeInsets.only(left: 8, bottom: 12),
-                  child: Text(
-                    'EVIDENCE PROVIDED',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.zinc600, letterSpacing: 1.5),
-                  ),
-                ),
+                const SizedBox(height: 24),
+                _buildSummarySection(),
+                const SizedBox(height: 24),
                 _buildEvidenceSection(),
+                const SizedBox(height: 24),
+                _buildSelectedNotesSection(selectedNotes),
+                const SizedBox(height: 24),
+                _buildDiscussionLinkCard(),
                 const SizedBox(height: 40),
               ],
             ),
@@ -130,157 +161,242 @@ class _ReviewScreenState extends State<ReviewScreen> {
   }
 
   Widget _buildHeaderCard() {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AppTheme.zinc900,
-        borderRadius: BorderRadius.circular(32),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AppCard(
+      padding: const EdgeInsets.all(20),
+      child: Row(
         children: [
-          Row(
-            children: [
-              AvatarWidget(user: widget.challenge.recipient, size: 36),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('SUBMITTED BY', style: TextStyle(color: AppTheme.zinc600, fontSize: 10, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  Text(widget.challenge.recipient.name, style: const TextStyle(color: AppTheme.white, fontWeight: FontWeight.bold, fontSize: 16)),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Text(
-            widget.challenge.title,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.white),
+          AvatarWidget(user: widget.challenge.recipient, size: 44, showBorder: false),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'SUBMITTED BY', 
+                  style: TextStyle(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.8)
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  widget.challenge.recipient.name, 
+                  style: TextStyle(color: isDark ? AppTheme.white : AppTheme.zinc950, fontWeight: FontWeight.bold, fontSize: 16)
+                ),
+              ],
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEvidenceSection() {
-    final proofUrl = _submission?['proofUrl'] as String?;
+  Widget _buildSummarySection() {
     final proofText = _submission?['proofText'] as String?;
+    if (proofText == null || proofText.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'SUBMISSION SUMMARY'),
+        const SizedBox(height: 12),
+        AppCard(
+          padding: const EdgeInsets.all(20),
+          child: Text(
+            proofText,
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 15, height: 1.5),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEvidenceSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final proofUrl = _submission?['proofUrl'] as String?;
+    if (proofUrl == null || proofUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (proofUrl != null)
-          Container(
+        const SectionHeader(title: 'MEDIA EVIDENCE'),
+        const SizedBox(height: 12),
+        GestureDetector(
+          onTap: () => _showFullScreenImage(context, proofUrl),
+          child: Container(
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.zinc900),
-              color: AppTheme.zinc950,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: isDark ? AppTheme.zinc800 : AppTheme.zinc200),
+              color: isDark ? AppTheme.zinc950 : AppTheme.zinc100,
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(16),
               child: CachedNetworkImage(
                 imageUrl: proofUrl,
                 width: double.infinity,
+                height: 200,
                 fit: BoxFit.cover,
                 placeholder: (context, url) => Container(
                   height: 200,
-                  color: AppTheme.zinc950,
-                  child: const Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+                  color: isDark ? AppTheme.zinc950 : AppTheme.zinc100,
+                  child: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.white : AppTheme.black, strokeWidth: 2)),
                 ),
                 errorWidget: (context, url, error) => Container(
                   height: 100,
-                  color: AppTheme.zinc950,
-                  child: const Icon(LucideIcons.imageOff, color: AppTheme.zinc700),
+                  color: isDark ? AppTheme.zinc950 : AppTheme.zinc100,
+                  child: Icon(LucideIcons.imageOff, color: isDark ? AppTheme.zinc700 : AppTheme.zinc400),
                 ),
               ),
             ),
           ),
-        if (proofText != null && proofText.isNotEmpty)
-          Container(
-            width: double.infinity,
-            margin: EdgeInsets.only(top: proofUrl != null ? 16 : 0),
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: AppTheme.zinc900.withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: AppTheme.zinc800),
-            ),
-            child: Text(
-              proofText,
-              style: const TextStyle(color: AppTheme.white, fontSize: 15, height: 1.6),
-            ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSelectedNotesSection(List<Note> selectedNotes) {
+    if (selectedNotes.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'SELECTED WORKSPACE NOTES'),
+        const SizedBox(height: 12),
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: selectedNotes.length,
+          itemBuilder: (context, index) {
+            final note = selectedNotes[index];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: NotePreviewCard(
+                note: note,
+                onTap: () => Navigator.push(
+                  context, 
+                  MaterialPageRoute(builder: (_) => NoteViewerScreen(note: note))
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDiscussionLinkCard() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(title: 'COMMUNICATION'),
+        const SizedBox(height: 12),
+        AppCard(
+          onTap: () => Navigator.push(
+            context, 
+            MaterialPageRoute(builder: (_) => DiscussionScreen(challenge: widget.challenge))
           ),
-        if (proofUrl == null && (proofText == null || proofText.isEmpty))
-          const Text('No evidence provided in this submission.', style: TextStyle(color: AppTheme.zinc600, fontStyle: FontStyle.italic)),
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).primaryColor.withValues(alpha: 0.08),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(LucideIcons.messageSquare, color: Theme.of(context).primaryColor, size: 20),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Discussion Chat', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 2),
+                    Text('View messages exchanged for this challenge.', style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 11)),
+                  ],
+                ),
+              ),
+              Icon(LucideIcons.chevronRight, color: Theme.of(context).textTheme.labelSmall?.color, size: 16),
+            ],
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildActionFooter() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
-      decoration: const BoxDecoration(
-        color: AppTheme.black,
-        border: Border(top: BorderSide(color: AppTheme.zinc900)),
+      padding: EdgeInsets.fromLTRB(20, 12, 20, MediaQuery.paddingOf(context).bottom + 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        border: Border(top: BorderSide(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200)),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: CustomButton(
-              text: 'Decline',
-              isLoading: _isDeclining,
-              onPressed: (_isVerifying || _isDeclining) ? null : () => _handleReview('rejected'),
-              backgroundColor: AppTheme.zinc900,
-              textColor: AppTheme.white,
-              borderColor: AppTheme.zinc800,
-              icon: const Icon(LucideIcons.x, size: 18, color: AppTheme.white),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: OutlinedButton.icon(
+                  onPressed: _isReviewing ? null : () => _handleReview('rejected'),
+                  icon: Icon(LucideIcons.xCircle, size: 16, color: isDark ? AppTheme.zinc300 : AppTheme.zinc700),
+                  label: Text('Request Changes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.zinc300 : AppTheme.zinc700)),
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: isDark ? AppTheme.zinc700 : AppTheme.zinc300, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: CustomButton(
-              text: 'Verify',
-              isLoading: _isVerifying,
-              onPressed: (_isVerifying || _isDeclining) ? null : () => _handleReview('approved'),
-              backgroundColor: AppTheme.white,
-              textColor: AppTheme.black,
-              icon: const Icon(LucideIcons.check, size: 18, color: AppTheme.black),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 48,
+                child: ElevatedButton.icon(
+                  onPressed: _isReviewing ? null : () => _handleReview('approved'),
+                  icon: const Icon(LucideIcons.checkCircle, size: 16),
+                  label: const Text('Approve Submission', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    elevation: 0,
+                  ),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Future<void> _handleReview(String status) async {
-    setState(() {
-      if (status == 'approved') {
-        _isVerifying = true;
-      } else {
-        _isDeclining = true;
-      }
-    });
-
-    try {
-      final success = await context.read<ChallengeProvider>().reviewSubmission(widget.challenge.id, status);
-      if (success && mounted) {
-        Navigator.of(context).pop();
-        return;
-      }
-    } catch (e) {
-      AppLogger.error('Review failed', e);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to update status. Please try again.'))
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isVerifying = false;
-          _isDeclining = false;
-        });
-      }
-    }
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.transparent,
+            elevation: 0,
+            leading: IconButton(
+              icon: const Icon(LucideIcons.x, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+          body: Center(
+            child: InteractiveViewer(
+              child: CachedNetworkImage(imageUrl: imageUrl),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

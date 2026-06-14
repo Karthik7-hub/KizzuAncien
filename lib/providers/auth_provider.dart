@@ -5,16 +5,27 @@ import '../services/notification_service.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
 
+import 'package:kizzu_ancien/utils/logger.dart';
+
+import 'package:google_sign_in/google_sign_in.dart';
+import '../utils/constants.dart';
+import '../utils/session_utils.dart';
+
+enum AuthStatus { authenticated, unauthenticated, offline }
+
 class AuthProvider extends ChangeNotifier {
   User? _user;
   Map<String, dynamic> _stats = {};
   bool _isLoading = false;
+  AuthStatus _status = AuthStatus.unauthenticated;
+  
   final ApiService _apiService = ApiService();
   final _storage = const FlutterSecureStorage();
 
   User? get user => _user;
   Map<String, dynamic> get stats => _stats;
   bool get isLoading => _isLoading;
+  AuthStatus get status => _status;
 
   Future<bool> register(String name, String username, String email, String password, String gender) async {
     _isLoading = true;
@@ -33,6 +44,7 @@ class AuthProvider extends ChangeNotifier {
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
         await NotificationService.setupFcmToken();
+        _status = AuthStatus.authenticated;
       }
       
       _isLoading = false;
@@ -71,6 +83,7 @@ class AuthProvider extends ChangeNotifier {
       await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
       await NotificationService.setupFcmToken();
       
+      _status = AuthStatus.authenticated;
       _isLoading = false;
       notifyListeners();
       return true;
@@ -108,6 +121,7 @@ class AuthProvider extends ChangeNotifier {
         await _storage.write(key: 'accessToken', value: response.data['accessToken']);
         await _storage.write(key: 'refreshToken', value: response.data['refreshToken']);
         await NotificationService.setupFcmToken();
+        _status = AuthStatus.authenticated;
       }
       
       _isLoading = false;
@@ -133,7 +147,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfile({String? name, String? profileImageUrl, String? gender}) async {
+  Future<void> updateProfile({String? name, String? profileImageUrl, String? gender, String? username}) async {
     _isLoading = true;
     notifyListeners();
     try {
@@ -141,6 +155,7 @@ class AuthProvider extends ChangeNotifier {
         if (name != null) 'name': name,
         if (profileImageUrl != null) 'profileImageUrl': profileImageUrl,
         if (gender != null) 'gender': gender,
+        if (username != null) 'username': username,
       });
       // The update endpoint returns the user object
       _user = User.fromJson(response.data);
@@ -157,45 +172,130 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> checkUsername(String username, {String? excludeUserId}) async {
+    try {
+      final queryParams = {
+        'username': username,
+        if (excludeUserId != null) 'excludeUserId': excludeUserId,
+      };
+      final response = await _apiService.dio.get('/users/check-username', queryParameters: queryParams);
+      return response.data['exists'] ?? false;
+    } catch (e) {
+      AppLogger.error('Error checking username', e);
+      return false;
+    }
+  }
+
+
+
+
   Future<void> logout() async {
     try {
-      await _apiService.dio.put('/users/fcm-token', data: {'fcmToken': null});
+      await _apiService.dio.post('/auth/logout').timeout(const Duration(seconds: 2));
     } catch (e) {
       // Silently fail logout server-side update
+      AppLogger.error('Server logout error', e);
     }
+
+    try {
+      final GoogleSignIn googleSignIn = GoogleSignIn(
+        serverClientId: AppConstants.googleServerClientId,
+      );
+      final hasGoogle = await googleSignIn.isSignedIn().timeout(const Duration(seconds: 1), onTimeout: () => false);
+      if (hasGoogle) {
+        await googleSignIn.signOut().timeout(const Duration(seconds: 1));
+        await googleSignIn.disconnect().timeout(const Duration(seconds: 1)); // Fully disconnect to force account picker
+      }
+    } catch (e) {
+      AppLogger.error('Google SignOut error', e);
+    }
+
+    SessionUtils.clearAllData();
+
     await _storage.deleteAll();
     _user = null;
+    _status = AuthStatus.unauthenticated;
     notifyListeners();
   }
 
-  Future<bool> checkAuth() async {
-    final token = await _storage.read(key: 'accessToken');
-    if (token == null) return false;
-    
+  Future<AuthStatus> checkAuth() async {
     try {
-      final response = await _apiService.dio.get('/users/profile');
+      final token = await _storage.read(key: 'accessToken');
+      if (token == null) {
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return AuthStatus.unauthenticated;
+      }
+      
+      // Proactively check profile. If it fails with 401, ApiService interceptor 
+      // will attempt refresh automatically before returning here.
+      final response = await _apiService.dio.get('/users/profile').timeout(
+        const Duration(seconds: 10),
+      );
+      
+      if (response.data['user'] == null) {
+        AppLogger.error('checkAuth: user data is null in response');
+        _status = AuthStatus.unauthenticated;
+        notifyListeners();
+        return AuthStatus.unauthenticated;
+      }
+
       _user = User.fromJson(response.data['user']);
       _stats = response.data['stats'] ?? {};
+      _status = AuthStatus.authenticated;
       notifyListeners();
-      return true;
+      return AuthStatus.authenticated;
     } on DioException catch (e) {
-      // If it's a 401, the interceptor should have already tried to refresh.
-      // If it's still 401, then we really are logged out.
+      AppLogger.error('checkAuth DioException: ${e.type}', e);
+      
+      // If we reach here after interceptor failure, logout
       if (e.response?.statusCode == 401 || e.response?.statusCode == 403) {
         await logout();
-        return false;
+        return AuthStatus.unauthenticated;
       }
       
-      // For network errors (timeout, connection refused), we DON'T log out.
+      // Network/Server issues
       if (e.type == DioExceptionType.connectionTimeout || 
           e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError) {
-        return true; 
+          e.type == DioExceptionType.sendTimeout ||
+          e.type == DioExceptionType.connectionError ||
+          e.type == DioExceptionType.badCertificate ||
+          e.type == DioExceptionType.unknown) {
+        
+        _status = AuthStatus.offline;
+        notifyListeners();
+        return AuthStatus.offline; 
       }
       
-      return false;
+      _status = AuthStatus.unauthenticated;
+      notifyListeners();
+      return AuthStatus.unauthenticated;
+    } catch (e, stack) {
+      AppLogger.error('checkAuth unexpected error', e, stack);
+      _status = AuthStatus.offline;
+      notifyListeners();
+      return AuthStatus.offline;
+    }
+  }
+
+  Future<void> updatePreferences(Map<String, dynamic> preferences) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final response = await _apiService.dio.put('/users/profile', data: {
+        'preferences': preferences,
+      });
+      _user = User.fromJson(response.data);
+      _isLoading = false;
+      notifyListeners();
+    } on DioException catch (e) {
+      _isLoading = false;
+      notifyListeners();
+      throw Exception(e.response?.data['message'] ?? 'Preferences update failed');
     } catch (e) {
-      return false;
+      _isLoading = false;
+      notifyListeners();
+      rethrow;
     }
   }
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
@@ -7,13 +6,21 @@ import 'package:kizzu_ancien/providers/auth_provider.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/providers/navigation_provider.dart';
 import 'package:kizzu_ancien/providers/notification_provider.dart';
+import 'package:kizzu_ancien/providers/friend_provider.dart';
 import 'package:kizzu_ancien/theme/app_theme.dart';
 import 'package:kizzu_ancien/screens/notifications_screen.dart';
 import 'package:kizzu_ancien/screens/challenge_details_screen.dart';
-import 'package:kizzu_ancien/screens/review_screen.dart';
 import 'package:kizzu_ancien/models/challenge.dart';
-import '../widgets/avatar_widget.dart';
-import '../widgets/challenge_card.dart';
+import 'package:kizzu_ancien/models/user.dart';
+import '../widgets/section_header.dart';
+
+import 'package:flutter_svg/flutter_svg.dart';
+import '../widgets/app_header.dart';
+
+import '../widgets/app_card.dart';
+
+import '../widgets/unified_challenge_tile.dart';
+import '../widgets/unified_user_tile.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -39,119 +46,149 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
       context.read<ChallengeProvider>().fetchChallenges(),
       context.read<NotificationProvider>().fetchNotifications(),
       context.read<AuthProvider>().checkAuth(),
+      context.read<FriendProvider>().fetchFriends(),
     ]);
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    final user = context.watch<AuthProvider>().user;
-    final challengeProvider = context.watch<ChallengeProvider>();
-    final navigationProvider = context.read<NavigationProvider>();
-    final textTheme = Theme.of(context).textTheme;
-
+    final user = context.select<AuthProvider, User?>((p) => p.user);
+    final stats = context.select<AuthProvider, Map<String, dynamic>>((p) => p.stats);
+    final challenges = context.select<ChallengeProvider, List<Challenge>>((p) => p.challenges);
+    final notifications = context.select<NotificationProvider, List<dynamic>>((p) => p.notifications);
+    
     if (user == null) {
-      return const Scaffold(
-        backgroundColor: AppTheme.black,
-        body: Center(child: CircularProgressIndicator(color: AppTheme.white, strokeWidth: 2)),
+      final isDark = Theme.of(context).brightness == Brightness.dark;
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(child: CircularProgressIndicator(color: isDark ? AppTheme.white : AppTheme.black, strokeWidth: 2)),
       );
     }
 
-    // Workflows for Home
-    final pendingReviews = challengeProvider.challenges
-        .where((c) => c.creator.id == user.id && c.status == 'submitted')
-        .toList();
+    final hasUnread = notifications.any((n) => !n.read);
 
-    final activeChallenges = challengeProvider.challenges
+    final today = DateTime.now();
+    final activeChallenges = challenges
         .where((c) => c.recipient.id == user.id && c.status == 'pending')
         .toList();
-
-    // Social Feed: Chronological by updatedAt
-    final List<Challenge> recentActivity = challengeProvider.challenges
-        .where((c) => c.status != 'pending')
-        .toList();
     
-    recentActivity.sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final displayActivity = recentActivity.take(10).toList();
+    final completedToday = challenges
+        .where((c) => c.recipient.id == user.id && 
+                      c.status == 'approved' && 
+                      c.updatedAt.day == today.day &&
+                      c.updatedAt.month == today.month &&
+                      c.updatedAt.year == today.year)
+        .length;
+
+    final recentFriendActivity = challenges
+        .where((c) => c.recipient.id != user.id && c.status != 'pending')
+        .take(5)
+        .toList();
+
+    final recentNotifications = notifications.take(3).toList();
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
-      appBar: AppBar(
-        backgroundColor: AppTheme.black,
-        elevation: 0,
-        centerTitle: false,
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Good ${DateTime.now().hour < 12 ? "morning" : DateTime.now().hour < 17 ? "afternoon" : "evening"}',
-              style: textTheme.labelLarge?.copyWith(color: AppTheme.zinc600),
-            ),
-            Text(
-              user.name.split(" ")[0],
-              style: textTheme.displayLarge?.copyWith(fontSize: 22),
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(LucideIcons.bell, size: 20, color: AppTheme.zinc500),
-            onPressed: () => Navigator.push(
-              context,
-              MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+      appBar: AppHeader(
+        title: 'KizzuAncien',
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 20),
+          child: Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: SvgPicture.asset(
+                'assets/logo.svg',
+                width: 28,
+                height: 28,
+              ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16, left: 8),
-            child: GestureDetector(
-              onTap: () {
-                HapticFeedback.lightImpact();
-                navigationProvider.setIndex(2);
-              },
-              child: AvatarWidget(user: user, size: 32, showBorder: true),
-            ),
+        ),
+        actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: Icon(LucideIcons.bell, color: Theme.of(context).primaryColor, size: 22),
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => const NotificationsScreen()),
+                  );
+                },
+              ),
+              if (hasUnread)
+                Positioned(
+                  right: 12,
+                  top: 12,
+                  child: Container(
+                    width: 8,
+                    height: 8,
+                    decoration: const BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _refreshData,
-        color: AppTheme.white,
-        backgroundColor: AppTheme.zinc950,
+        color: Theme.of(context).primaryColor,
+        backgroundColor: Theme.of(context).cardTheme.color,
         child: CustomScrollView(
           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
           slivers: [
             SliverPadding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               sliver: SliverList(
                 delegate: SliverChildListDelegate([
-                  _buildSummaryRow(user),
+                  _buildHeroCard(stats, completedToday, activeChallenges.length),
                   const SizedBox(height: 32),
-
-                  if (pendingReviews.isNotEmpty) ...[
-                    _buildSectionHeader('REQUIRED ATTENTION', color: AppTheme.white),
-                    const SizedBox(height: 16),
-                    ...pendingReviews.map((c) => _buildReviewActionItem(context, c)),
-                    const SizedBox(height: 32),
-                  ],
-
+                  
                   if (activeChallenges.isNotEmpty) ...[
-                    _buildSectionHeader('ACTIVE CHALLENGES'),
+                    _buildSectionHeader('TODAY\'S CHALLENGES'),
                     const SizedBox(height: 16),
-                    ...activeChallenges.map((c) => Padding(
-                      padding: const EdgeInsets.only(bottom: 16),
-                      child: ChallengeCard(challenge: c),
-                    )),
+                    ...activeChallenges.map((c) => UnifiedChallengeTile(challenge: c, variant: ChallengeTileVariant.compact)),
                     const SizedBox(height: 32),
                   ],
 
-                  _buildSectionHeader('SOCIAL FEED'),
-                  const SizedBox(height: 12),
-                  
-                  if (displayActivity.isEmpty && !challengeProvider.isLoading)
-                    _buildEmptyFeed()
-                  else
-                    ...displayActivity.map((c) => _ActivityItem(challenge: c)),
-                  
+                  _buildSectionHeader('QUICK ACTIONS'),
+                  const SizedBox(height: 16),
+                  _buildQuickActions(),
+                  const SizedBox(height: 40),
+
+                  if (recentFriendActivity.isNotEmpty) ...[
+                    _buildSectionHeader('FRIEND ACTIVITY'),
+                    const SizedBox(height: 16),
+                    ...recentFriendActivity.map((c) => _buildActivityItem(c)),
+                    const SizedBox(height: 40),
+                  ],
+
+                  if (recentNotifications.isNotEmpty) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildSectionHeader('NOTIFICATIONS'),
+                        GestureDetector(
+                          onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen())),
+                          child: Text(
+                            'View All', 
+                            style: TextStyle(
+                              color: Theme.of(context).textTheme.labelSmall?.color, 
+                              fontSize: 12, 
+                              fontWeight: FontWeight.bold
+                            )
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ...recentNotifications.map((n) => _buildNotificationPreviewItem(n)),
+                  ],
+
                   const SizedBox(height: 120),
                 ]),
               ),
@@ -162,158 +199,215 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     );
   }
 
-  Widget _buildSummaryRow(dynamic user) {
-    final stats = context.watch<AuthProvider>().stats;
-    return Row(
-      children: [
-        _buildMiniStat('${stats['streak'] ?? 0}', 'BEST STREAK', LucideIcons.zap, AppTheme.white),
-        const SizedBox(width: 24),
-        _buildMiniStat('${stats['activeStreaks'] ?? 0}', 'ACTIVE STREAKS', LucideIcons.activity, AppTheme.white),
-      ],
-    );
-  }
-
-  Widget _buildMiniStat(String value, String label, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.white)),
-            Text(label, style: const TextStyle(fontSize: 9, color: AppTheme.zinc600, fontWeight: FontWeight.bold, letterSpacing: 0.5)),
-          ],
+  Widget _buildHeroCard(Map<String, dynamic> stats, int completed, int remaining) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AppCard(
+      padding: const EdgeInsets.all(32),
+      boxShadow: [
+        BoxShadow(
+          color: (isDark ? AppTheme.white : AppTheme.black).withValues(alpha: 0.03),
+          blurRadius: 40,
+          offset: const Offset(0, 20),
         ),
       ],
-    );
-  }
-
-  Widget _buildSectionHeader(String title, {Color color = AppTheme.zinc500}) {
-    return Row(
-      children: [
-        Container(width: 2, height: 10, decoration: BoxDecoration(color: color == AppTheme.white ? AppTheme.white : AppTheme.zinc700)),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: color, letterSpacing: 1.5),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildReviewActionItem(BuildContext context, Challenge challenge) {
-    return GestureDetector(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ReviewScreen(challenge: challenge))),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AppTheme.white,
-          borderRadius: BorderRadius.circular(24),
-          boxShadow: [
-            BoxShadow(
-              color: AppTheme.white.withValues(alpha: 0.1),
-              blurRadius: 20,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 44,
-              height: 44,
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                color: AppTheme.black,
-              ),
-              child: const Icon(LucideIcons.checkCircle2, color: AppTheme.white, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    'Review verification',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.black, letterSpacing: -0.5),
-                  ),
-                  const SizedBox(height: 2),
                   Text(
-                    'From ${challenge.recipient.name}',
-                    style: TextStyle(fontSize: 13, color: AppTheme.black.withValues(alpha: 0.6), fontWeight: FontWeight.w500),
+                    'CURRENT STREAK', 
+                    style: TextStyle(
+                      fontSize: 10, 
+                      fontWeight: FontWeight.bold, 
+                      color: Theme.of(context).textTheme.labelSmall?.color, 
+                      letterSpacing: 1.5
+                    )
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '${stats['streak'] ?? 0}', 
+                        style: TextStyle(
+                          fontSize: 48, 
+                          fontWeight: FontWeight.bold, 
+                          color: Theme.of(context).primaryColor, 
+                          height: 1
+                        )
+                      ),
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Text(
+                          'DAYS', 
+                          style: TextStyle(
+                            fontSize: 14, 
+                            fontWeight: FontWeight.bold, 
+                            color: Theme.of(context).textTheme.labelLarge?.color
+                          )
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.zinc900 : AppTheme.zinc100, 
+                  borderRadius: BorderRadius.circular(16)
+                ),
+                child: const Icon(LucideIcons.zap, color: Colors.amber, size: 32),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+          Container(height: 1, color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              _buildHeroStat('$completed', 'COMPLETED TODAY'),
+              const SizedBox(width: 48),
+              _buildHeroStat('$remaining', 'REMAINING'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroStat(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value, 
+          style: TextStyle(
+            fontSize: 20, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).primaryColor
+          )
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label, 
+          style: TextStyle(
+            fontSize: 9, 
+            fontWeight: FontWeight.bold, 
+            color: Theme.of(context).textTheme.labelSmall?.color, 
+            letterSpacing: 0.5
+          )
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return SectionHeader(title: title);
+  }
+
+
+
+  Widget _buildQuickActions() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        _buildActionBtn(LucideIcons.plus, 'Create', () => context.read<NavigationProvider>().setIndex(2)),
+        _buildActionBtn(LucideIcons.userPlus, 'Add Friend', () => context.read<NavigationProvider>().setIndex(3)),
+        _buildActionBtn(LucideIcons.layoutList, 'Challenges', () => context.read<NavigationProvider>().setIndex(1)),
+      ],
+    );
+  }
+
+  Widget _buildActionBtn(IconData icon, String label, VoidCallback onTap) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: (MediaQuery.sizeOf(context).width - 64) / 3,
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, color: Theme.of(context).primaryColor, size: 20),
+            const SizedBox(height: 8),
+            Text(
+              label, 
+              style: TextStyle(
+                fontSize: 11, 
+                fontWeight: FontWeight.bold, 
+                color: Theme.of(context).textTheme.bodyMedium?.color
+              )
             ),
-            Icon(LucideIcons.arrowRight, color: AppTheme.black.withValues(alpha: 0.4), size: 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildEmptyFeed() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 40),
-      child: Center(
-        child: Text(
-          'No recent activity.\nStart a challenge to see updates.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: AppTheme.zinc700, fontSize: 13, height: 1.5),
-        ),
-      ),
-    );
-  }
-}
-
-class _ActivityItem extends StatelessWidget {
-  final Challenge challenge;
-  const _ActivityItem({required this.challenge});
-
-  @override
-  Widget build(BuildContext context) {
-    String action = '';
-    if (challenge.status == 'approved') action = 'completed a challenge';
+  Widget _buildActivityItem(Challenge challenge) {
+    String action = 'completed a challenge';
     if (challenge.status == 'submitted') action = 'submitted proof';
     if (challenge.status == 'rejected') action = 'had a challenge declined';
 
-    return InkWell(
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        child: Row(
-          children: [
-            AvatarWidget(user: challenge.recipient, size: 36, showBorder: false),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  RichText(
-                    text: TextSpan(
-                      style: const TextStyle(color: AppTheme.zinc400, fontSize: 13),
-                      children: [
-                        TextSpan(text: challenge.recipient.name, style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.white)),
-                        TextSpan(text: ' $action'),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    challenge.title,
-                    style: const TextStyle(color: AppTheme.zinc600, fontSize: 12),
-                  ),
-                ],
+    return UnifiedUserTile(
+      user: challenge.recipient,
+      variant: UserTileVariant.activity,
+      subtitle: action,
+      trailing: Text(
+        timeago.format(challenge.updatedAt), 
+        style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 10)
+      ),
+      onTap: () => Navigator.push(
+        context, 
+        MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))
+      ),
+    );
+  }
+
+  Widget _buildNotificationPreviewItem(dynamic notification) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardTheme.color,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 4, 
+            height: 4, 
+            decoration: BoxDecoration(
+              color: Theme.of(context).primaryColor, 
+              shape: BoxShape.circle
+            )
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              notification.message,
+              style: TextStyle(
+                color: Theme.of(context).textTheme.bodyMedium?.color, 
+                fontSize: 12
               ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
-            Text(
-              timeago.format(challenge.updatedAt),
-              style: const TextStyle(color: AppTheme.zinc800, fontSize: 10, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

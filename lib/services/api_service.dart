@@ -8,6 +8,9 @@ class ApiService {
 
   late final Dio dio;
   final storage = const FlutterSecureStorage();
+  
+  bool _isRefreshing = false;
+  final List<void Function(String?)> _refreshQueue = [];
 
   ApiService._internal() {
     dio = Dio(BaseOptions(
@@ -28,16 +31,45 @@ class ApiService {
         }
         return handler.next(options);
       },
-      onResponse: (response, handler) {
-        return handler.next(response);
-      },
       onError: (DioException e, handler) async {
         if (e.response?.statusCode == 401) {
+          final requestOptions = e.requestOptions;
+          if (_isRefreshing) {
+            // Queue the request until refresh is complete
+            _refreshQueue.add((String? newToken) async {
+              if (newToken != null) {
+                requestOptions.headers['Authorization'] = 'Bearer $newToken';
+                final opts = Options(
+                  method: requestOptions.method,
+                  headers: requestOptions.headers,
+                );
+                try {
+                  final cloneReq = await dio.request(
+                    requestOptions.path,
+                    options: opts,
+                    data: requestOptions.data,
+                    queryParameters: requestOptions.queryParameters,
+                  );
+                  handler.resolve(cloneReq);
+                } catch (err) {
+                  handler.reject(err is DioException ? err : e);
+                }
+              } else {
+                handler.reject(e);
+              }
+            });
+            return;
+          }
+
+          _isRefreshing = true;
           final refreshToken = await storage.read(key: 'refreshToken');
+          
           if (refreshToken != null) {
             try {
-              // Use a fresh Dio instance to avoid recursive loops
-              final refreshResponse = await Dio().post(
+              // Create a fresh Dio instance for the refresh call to avoid 
+              // the global interceptor's possible infinite loops/queue issues.
+              final refreshDio = Dio();
+              final refreshResponse = await refreshDio.post(
                 '${AppConstants.apiBaseUrl}/auth/refresh-token',
                 data: {'token': refreshToken}
               );
@@ -48,29 +80,47 @@ class ApiService {
               await storage.write(key: 'accessToken', value: newAccessToken);
               await storage.write(key: 'refreshToken', value: newRefreshToken);
               
-              // Update original request headers and retry
-              e.requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
+              _isRefreshing = false;
               
+              // Process queue
+              final callbacks = List<void Function(String?)>.from(_refreshQueue);
+              _refreshQueue.clear();
+              for (var callback in callbacks) {
+                callback(newAccessToken);
+              }
+
+              // Retry original request
+              requestOptions.headers['Authorization'] = 'Bearer $newAccessToken';
               final opts = Options(
-                method: e.requestOptions.method,
-                headers: e.requestOptions.headers,
+                method: requestOptions.method,
+                headers: requestOptions.headers,
               );
-              
               final cloneReq = await dio.request(
-                e.requestOptions.path,
+                requestOptions.path,
                 options: opts,
-                data: e.requestOptions.data,
-                queryParameters: e.requestOptions.queryParameters,
+                data: requestOptions.data,
+                queryParameters: requestOptions.queryParameters,
               );
-              
               return handler.resolve(cloneReq);
             } catch (err) {
+              _isRefreshing = false;
               await storage.deleteAll();
+              final callbacks = List<void Function(String?)>.from(_refreshQueue);
+              _refreshQueue.clear();
+              for (var callback in callbacks) {
+                callback(null);
+              }
+              return handler.next(e);
             }
           }
         }
         return handler.next(e);
       },
     ));
+  }
+
+  void reset() {
+    _isRefreshing = false;
+    _refreshQueue.clear();
   }
 }

@@ -22,6 +22,26 @@ exports.getProfile = async (req, res, next) => {
       $or: [{ requester: userId }, { recipient: userId }]
     }).populate('requester recipient', 'name');
 
+    const todayStart = new Date().setHours(0,0,0,0);
+    const yesterdayStart = todayStart - 86400000;
+
+    let resetOccurred = false;
+    for (let f of allFriendships) {
+      if (f.streak > 0 && f.lastStreakUpdate && new Date(f.lastStreakUpdate) < new Date(yesterdayStart)) {
+        f.streak = 0;
+        await f.save();
+        resetOccurred = true;
+      }
+    }
+
+    if (resetOccurred) {
+      const bestStreak = Math.max(...allFriendships.map(f => f.streak), 0);
+      if (user.currentStreak !== bestStreak) {
+        user.currentStreak = bestStreak;
+        await user.save();
+      }
+    }
+
     let longestOverallStreak = 0;
     let streakFriendName = '';
     let activeStreaksCount = 0;
@@ -67,12 +87,42 @@ exports.updateProfile = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
     if (user) {
+      if (req.body.username && req.body.username !== user.username) {
+        const usernameExists = await User.findOne({
+          username: { $regex: new RegExp(`^${req.body.username}$`, 'i') },
+          _id: { $ne: user._id }
+        });
+        if (usernameExists) {
+          return res.status(400).json({ message: 'Username is already taken' });
+        }
+        user.username = req.body.username;
+      }
       user.name = req.body.name || user.name;
       user.profileImageUrl = req.body.profileImageUrl || user.profileImageUrl;
       if (req.body.gender) {
         user.gender = req.body.gender;
         user.avatarType = user.gender === 'male' ? 'male_default' : 'female_default';
       }
+
+      if (req.body.preferences) {
+        user.preferences = {
+          ...user.preferences,
+          ...req.body.preferences,
+          notifications: {
+            ...user.preferences?.notifications,
+            ...(req.body.preferences.notifications || {})
+          },
+          privacy: {
+            ...user.preferences?.privacy,
+            ...(req.body.preferences.privacy || {})
+          },
+          appearance: {
+            ...user.preferences?.appearance,
+            ...(req.body.preferences.appearance || {})
+          }
+        };
+      }
+
       const updatedUser = await user.save();
       res.json(updatedUser);
     } else {
@@ -99,6 +149,73 @@ exports.updateFcmToken = async (req, res, next) => {
   }
 };
 
+exports.getUserProfile = async (req, res, next) => {
+  try {
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('-password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const relationship = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: userId },
+        { requester: userId, recipient: req.user._id }
+      ]
+    });
+
+    if (relationship && relationship.status === 'accepted') {
+      const todayStart = new Date().setHours(0,0,0,0);
+      const yesterdayStart = todayStart - 86400000;
+      if (relationship.streak > 0 && relationship.lastStreakUpdate && new Date(relationship.lastStreakUpdate) < new Date(yesterdayStart)) {
+        relationship.streak = 0;
+        await relationship.save();
+
+        const updateStreakForUser = async (uId) => {
+          const allUserFriendships = await Friend.find({
+            status: 'accepted',
+            $or: [{ requester: uId }, { recipient: uId }]
+          });
+          const bestUserStreak = Math.max(...allUserFriendships.map(f => f.streak), 0);
+          await User.findByIdAndUpdate(uId, { $set: { currentStreak: bestUserStreak } });
+        };
+        await updateStreakForUser(req.user._id);
+        await updateStreakForUser(userId);
+      }
+    }
+
+    let relationshipStatus = 'NOT_FRIENDS';
+    if (relationship) {
+      if (relationship.status === 'accepted') {
+        relationshipStatus = 'FRIENDS';
+      } else if (relationship.status === 'pending') {
+        relationshipStatus = relationship.requester.toString() === req.user._id.toString()
+          ? 'PENDING_SENT'
+          : 'PENDING_RECEIVED';
+      }
+    }
+
+    const friendPointsEarnedResult = await PointTransaction.aggregate([
+      { $match: { user: user._id, amount: { $gt: 0 } } },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    const friendTotalPoints = friendPointsEarnedResult[0]?.total || 0;
+
+    res.json({
+      user,
+      relationshipStatus,
+      requestId: relationship ? relationship._id : null,
+      relationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRequester : relationship.pointsRecipient) : 0,
+      friendRelationshipPoints: relationship ? (relationship.requester.toString() === req.user._id.toString() ? relationship.pointsRecipient : relationship.pointsRequester) : 0,
+      friendTotalPoints,
+      sharedStreak: relationship ? relationship.streak : 0,
+      sharedLongestStreak: relationship ? relationship.longestStreak : 0
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.searchUsers = async (req, res, next) => {
   try {
     const keyword = req.query.search ? {
@@ -109,10 +226,28 @@ exports.searchUsers = async (req, res, next) => {
     } : {};
 
     const users = await User.find({ ...keyword, _id: { $ne: req.user._id } })
-      .select('name username profileImageUrl gender avatarType points streak')
+      .select('name username profileImageUrl gender avatarType streak')
       .limit(10);
     res.json(users);
   } catch (error) {
     next(error);
   }
 };
+
+exports.checkUsernameAvailability = async (req, res, next) => {
+  try {
+    const { username, excludeUserId } = req.query;
+    if (!username) {
+      return res.status(400).json({ message: 'Username parameter is required' });
+    }
+    const query = { username: { $regex: new RegExp(`^${username}$`, 'i') } };
+    if (excludeUserId) {
+      query._id = { $ne: excludeUserId };
+    }
+    const user = await User.findOne(query);
+    res.json({ exists: !!user });
+  } catch (error) {
+    next(error);
+  }
+};
+

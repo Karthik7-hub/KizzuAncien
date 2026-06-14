@@ -6,6 +6,7 @@ const submissionSchema = new mongoose.Schema({
   proofUrl: { type: String }, // Image/Video URL
   proofText: { type: String },
   proofType: { type: String, required: true },
+  selectedNotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Note' }],
   status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' }
 }, { timestamps: true });
 

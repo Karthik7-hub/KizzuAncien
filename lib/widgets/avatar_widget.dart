@@ -18,28 +18,29 @@ class AvatarWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: AppTheme.zinc900,
+        color: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
         border: showBorder
-            ? Border.all(color: AppTheme.white.withValues(alpha: 0.1), width: size * 0.05)
+            ? Border.all(color: isDark ? AppTheme.white.withValues(alpha: 0.1) : AppTheme.zinc200, width: size * 0.05)
             : null,
       ),
       child: ClipOval(
-        child: _buildAvatarContent(),
+        child: _buildAvatarContent(isDark),
       ),
     );
   }
 
-  Widget _buildAvatarContent() {
+  Widget _buildAvatarContent(bool isDark) {
     if (user.profileImageUrl != null && user.profileImageUrl!.isNotEmpty) {
       return CachedNetworkImage(
         imageUrl: user.profileImageUrl!,
         fit: BoxFit.cover,
-        placeholder: (context, url) => Container(color: AppTheme.zinc900),
+        placeholder: (context, url) => Container(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
         errorWidget: (context, url, error) => _buildDefaultSvg(),
       );
     }

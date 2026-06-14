@@ -14,34 +14,30 @@ import 'package:kizzu_ancien/services/notification_service.dart';
 import 'package:kizzu_ancien/utils/logger.dart';
 import 'firebase_options.dart';
 
+import 'package:kizzu_ancien/providers/theme_provider.dart';
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  // Ensure Firebase is initialized for background processing
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  try {
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  } catch (e) {
+    // Already initialized
+  }
   AppLogger.info("Background Message Received: ${message.messageId}");
 }
 
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-void main() async {
+void main() {
+  // Ensure the binding is initialized for the first frame
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  
-  // Register background handler
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-  // Initialize notifications without awaiting to prevent startup hangs
-  NotificationService.init();
-
+  // We run the app IMMEDIATELY to show the splash screen.
+  // Async initializations are moved to the app lifecycle or splash screen.
   runApp(
     MultiProvider(
       providers: [
+        ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => ChallengeProvider()),
         ChangeNotifierProvider(create: (_) => FriendProvider()),
@@ -54,16 +50,42 @@ void main() async {
   );
 }
 
-class KizzuAncienApp extends StatelessWidget {
+class KizzuAncienApp extends StatefulWidget {
   const KizzuAncienApp({super.key});
 
   @override
+  State<KizzuAncienApp> createState() => _KizzuAncienAppState();
+}
+
+class _KizzuAncienAppState extends State<KizzuAncienApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Initialize services in the background without blocking the first frame
+    _initApp();
+  }
+
+  Future<void> _initApp() async {
+    try {
+      await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+      FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+      await NotificationService.init();
+    } catch (e) {
+      AppLogger.error('Startup initialization failed', e);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final themeProvider = context.watch<ThemeProvider>();
+    
     return MaterialApp(
       title: 'KizzuAncien',
       navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.darkTheme,
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: themeProvider.themeMode,
       home: const SplashScreen(),
     );
   }

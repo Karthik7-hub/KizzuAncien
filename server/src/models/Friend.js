@@ -11,6 +11,8 @@ const friendSchema = new mongoose.Schema({
   streak: { type: Number, default: 0 },
   longestStreak: { type: Number, default: 0 },
   lastStreakUpdate: { type: Date },
+  pointsRequester: { type: Number, default: 0 },
+  pointsRecipient: { type: Number, default: 0 },
 }, { timestamps: true });
 
 friendSchema.index({ requester: 1, recipient: 1 });

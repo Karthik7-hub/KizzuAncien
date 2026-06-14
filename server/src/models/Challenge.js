@@ -16,7 +16,8 @@ const challengeSchema = new mongoose.Schema({
     enum: ['pending', 'submitted', 'approved', 'rejected', 'expired'],
     default: 'pending'
   },
-  submission: { type: Object } // Added for stable branch visibility
+  coverImage: { type: String },
+  notes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Note' }],
 }, { timestamps: true });
 
 challengeSchema.index({ creator: 1 });

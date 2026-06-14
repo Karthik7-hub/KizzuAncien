@@ -29,8 +29,36 @@ class _AuthScreenState extends State<AuthScreen> {
 
   bool get _isAnyLoading => _isEmailLoading || _isGoogleLoading;
 
+  bool get _canLogin {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    return email.isNotEmpty && 
+           RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email) && 
+           password.length >= 6;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController.addListener(_updateState);
+    _passwordController.addListener(_updateState);
+  }
+
+  @override
+  void dispose() {
+    _emailController.removeListener(_updateState);
+    _passwordController.removeListener(_updateState);
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  void _updateState() {
+    setState(() {});
+  }
+
   void _handleLogin() async {
-    if (_isAnyLoading) return;
+    if (_isAnyLoading || !_canLogin) return;
     setState(() => _isEmailLoading = true);
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
@@ -141,9 +169,10 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor: AppTheme.black,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(AppTheme.padding * 1.5),
@@ -180,7 +209,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     const SizedBox(height: 8),
                     Text(
                       'Sign in to continue your streak.',
-                      style: textTheme.bodyLarge?.copyWith(color: AppTheme.zinc500),
+                      style: textTheme.bodyLarge?.copyWith(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600),
                     ),
                   ],
                 ),
@@ -190,36 +219,37 @@ class _AuthScreenState extends State<AuthScreen> {
                 controller: _emailController,
                 hintText: 'Email Address',
                 keyboardType: TextInputType.emailAddress,
+                enabled: !_isAnyLoading,
               ),
               const SizedBox(height: 12),
               CustomTextField(
                 controller: _passwordController,
                 hintText: 'Password',
                 obscureText: true,
+                enabled: !_isAnyLoading,
               ),
               const SizedBox(height: 32),
               Column(
                 children: [
                   CustomButton(
                     text: 'Sign In',
-                    onPressed: _isAnyLoading ? null : _handleLogin,
-                    backgroundColor: AppTheme.white,
-                    textColor: AppTheme.black,
-                    icon: const Icon(LucideIcons.logIn, size: 18),
+                    onPressed: (_isAnyLoading || !_canLogin) ? null : _handleLogin,
+                    backgroundColor: isDark ? AppTheme.white : AppTheme.black,
+                    textColor: isDark ? AppTheme.black : AppTheme.white,
+                    icon: Icon(LucideIcons.logIn, size: 18, color: isDark ? AppTheme.black : AppTheme.white),
                     isLoading: _isEmailLoading,
                   ),
                   const SizedBox(height: 12),
                   CustomButton(
                     text: 'Continue with Google',
                     onPressed: _isAnyLoading ? null : _handleGoogleLogin,
-                    backgroundColor: AppTheme.zinc950,
-                    textColor: AppTheme.white,
-                    borderColor: AppTheme.zinc900,
-                    icon: SvgPicture.network(
-                      'https://www.vectorlogo.zone/logos/google/google-icon.svg',
+                    backgroundColor: isDark ? AppTheme.zinc950 : AppTheme.zinc100,
+                    textColor: isDark ? AppTheme.white : AppTheme.black,
+                    borderColor: isDark ? AppTheme.zinc900 : AppTheme.zinc200,
+                    icon: SvgPicture.asset(
+                      'assets/google_icon.svg',
                       width: 18,
                       height: 18,
-                      placeholderBuilder: (context) => const Icon(LucideIcons.globe, size: 18),
                     ),
                     isLoading: _isGoogleLoading,
                   ),
@@ -236,12 +266,12 @@ class _AuthScreenState extends State<AuthScreen> {
                   child: RichText(
                     text: TextSpan(
                       text: "New here? ",
-                      style: textTheme.bodyMedium?.copyWith(color: AppTheme.zinc600),
+                      style: textTheme.bodyMedium?.copyWith(color: isDark ? AppTheme.zinc500 : AppTheme.zinc600),
                       children: [
                         TextSpan(
                           text: 'Create Account',
                           style: textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.white,
+                            color: isDark ? AppTheme.white : AppTheme.zinc950,
                             fontWeight: FontWeight.bold,
                           ),
                         ),

@@ -133,3 +133,15 @@ exports.refreshToken = async (req, res, next) => {
     next(error);
   }
 };
+
+exports.logout = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+    // Clear user's FCM token on logout
+    await User.findByIdAndUpdate(userId, { fcmToken: null });
+    res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    next(error);
+  }
+};
+

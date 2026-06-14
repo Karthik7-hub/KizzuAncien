@@ -1,7 +1,7 @@
 const Truth = require('../models/Truth');
 const Dare = require('../models/Dare');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
+const { createCappedNotification } = require('../utils/notificationUtils');
 const PointTransaction = require('../models/PointTransaction');
 const { sendPushNotification } = require('../services/firebaseService');
 
@@ -10,9 +10,23 @@ exports.sendTruth = async (req, res, next) => {
     const { recipientId, question } = req.body;
     const pointsRequired = 50;
 
-    const user = await User.findById(req.user._id);
-    if (user.points < pointsRequired) {
-      return res.status(400).json({ message: 'Insufficient points' });
+    const friendRel = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: recipientId },
+        { requester: recipientId, recipient: req.user._id }
+      ],
+      status: 'accepted'
+    });
+
+    if (!friendRel) {
+      return res.status(400).json({ message: 'Must be friends to send a Truth' });
+    }
+
+    const isRequester = friendRel.requester.toString() === req.user._id.toString();
+    const currentPoints = isRequester ? friendRel.pointsRequester : friendRel.pointsRecipient;
+
+    if (currentPoints < pointsRequired) {
+      return res.status(400).json({ message: 'Insufficient relationship points' });
     }
 
     const truth = await Truth.create({
@@ -22,8 +36,12 @@ exports.sendTruth = async (req, res, next) => {
       pointsSpent: pointsRequired
     });
 
-    user.points -= pointsRequired;
-    await user.save();
+    if (isRequester) {
+      friendRel.pointsRequester -= pointsRequired;
+    } else {
+      friendRel.pointsRecipient -= pointsRequired;
+    }
+    await friendRel.save();
 
     await PointTransaction.create({
       user: req.user._id,
@@ -33,7 +51,7 @@ exports.sendTruth = async (req, res, next) => {
       description: `Sent truth to ${recipientId}`
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'truth_received',
@@ -63,9 +81,23 @@ exports.sendDare = async (req, res, next) => {
     const { recipientId, task } = req.body;
     const pointsRequired = 100;
 
-    const user = await User.findById(req.user._id);
-    if (user.points < pointsRequired) {
-      return res.status(400).json({ message: 'Insufficient points' });
+    const friendRel = await Friend.findOne({
+      $or: [
+        { requester: req.user._id, recipient: recipientId },
+        { requester: recipientId, recipient: req.user._id }
+      ],
+      status: 'accepted'
+    });
+
+    if (!friendRel) {
+      return res.status(400).json({ message: 'Must be friends to send a Dare' });
+    }
+
+    const isRequester = friendRel.requester.toString() === req.user._id.toString();
+    const currentPoints = isRequester ? friendRel.pointsRequester : friendRel.pointsRecipient;
+
+    if (currentPoints < pointsRequired) {
+      return res.status(400).json({ message: 'Insufficient relationship points' });
     }
 
     const dare = await Dare.create({
@@ -75,8 +107,12 @@ exports.sendDare = async (req, res, next) => {
       pointsSpent: pointsRequired
     });
 
-    user.points -= pointsRequired;
-    await user.save();
+    if (isRequester) {
+      friendRel.pointsRequester -= pointsRequired;
+    } else {
+      friendRel.pointsRecipient -= pointsRequired;
+    }
+    await friendRel.save();
 
     await PointTransaction.create({
       user: req.user._id,
@@ -86,7 +122,7 @@ exports.sendDare = async (req, res, next) => {
       description: `Sent dare to ${recipientId}`
     });
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: recipientId,
       sender: req.user._id,
       type: 'dare_received',
@@ -139,7 +175,7 @@ exports.answerTruth = async (req, res, next) => {
     truth.status = 'answered';
     await truth.save();
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: truth.sender._id,
       sender: req.user._id,
       type: 'truth_answered',
@@ -175,7 +211,7 @@ exports.completeDare = async (req, res, next) => {
     dare.status = 'completed';
     await dare.save();
 
-    await Notification.create({
+    await createCappedNotification({
       recipient: dare.sender._id,
       sender: req.user._id,
       type: 'dare_completed',

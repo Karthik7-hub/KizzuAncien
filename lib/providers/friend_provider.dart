@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../models/user.dart';
 import '../services/api_service.dart';
-import '../utils/logger.dart';
+import 'package:kizzu_ancien/utils/logger.dart';
 
 class FriendProvider extends ChangeNotifier {
   List<User> _friends = [];
@@ -38,6 +38,16 @@ class FriendProvider extends ChangeNotifier {
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  Future<Map<String, dynamic>> fetchUserProfile(String userId) async {
+    try {
+      final response = await _apiService.dio.get('/users/profile/$userId');
+      return response.data;
+    } catch (e) {
+      AppLogger.error('Error fetching user profile', e);
+      return {};
     }
   }
 
@@ -118,5 +128,31 @@ class FriendProvider extends ChangeNotifier {
       _isLoading = false;
       notifyListeners();
     }
+  }
+
+  String getRelationshipStatus(String userId) {
+    if (_friends.any((u) => u.id == userId)) return 'friend';
+    if (_incomingRequests.any((r) => r['user'].id == userId)) return 'incoming';
+    if (_outgoingRequests.any((r) => r['user'].id == userId)) return 'outgoing';
+    return 'none';
+  }
+
+  String? getRequestId(String userId) {
+    for (var r in _incomingRequests) {
+      if (r['user'].id == userId) return r['id'] as String?;
+    }
+    for (var r in _outgoingRequests) {
+      if (r['user'].id == userId) return r['id'] as String?;
+    }
+    return null;
+  }
+
+  void clear() {
+    _friends = [];
+    _incomingRequests = [];
+    _outgoingRequests = [];
+    _searchResults = [];
+    _isLoading = false;
+    notifyListeners();
   }
 }

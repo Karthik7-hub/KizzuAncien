@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
-import '../utils/logger.dart';
+import 'package:kizzu_ancien/utils/logger.dart';
 import 'auth_provider.dart';
 
 class TruthDareProvider extends ChangeNotifier {
@@ -105,5 +105,12 @@ class TruthDareProvider extends ChangeNotifier {
       notifyListeners();
       return false;
     }
+  }
+
+  void clear() {
+    _truths = [];
+    _dares = [];
+    _isLoading = false;
+    notifyListeners();
   }
 }
