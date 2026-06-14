@@ -35,7 +35,7 @@ class _CreateNoteScreenState extends State<CreateNoteScreen> {
 
   late NoteType _selectedType;
   String _selectedLanguage = 'C++';
-  List<String> _remoteImages = [];
+  final List<String> _remoteImages = [];
   final List<File> _selectedImages = [];
   bool _isSaving = false;
 

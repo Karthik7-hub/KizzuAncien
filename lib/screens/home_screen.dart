@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:timeago/timeago.dart' as timeago;
-import 'package:cached_network_image/cached_network_image.dart';
-import 'package:intl/intl.dart';
 import 'package:kizzu_ancien/providers/auth_provider.dart';
 import 'package:kizzu_ancien/providers/challenge_provider.dart';
 import 'package:kizzu_ancien/providers/navigation_provider.dart';
@@ -314,63 +312,7 @@ class _HomeScreenState extends State<HomeScreen> with AutomaticKeepAliveClientMi
     return SectionHeader(title: title);
   }
 
-  Widget _buildTodayChallengeCard(Challenge challenge) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return AppCard(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      color: isDark ? AppTheme.zinc900.withValues(alpha: 0.4) : AppTheme.zinc50,
-      onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ChallengeDetailsScreen(challenge: challenge))),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (challenge.coverImage != null)
-            ClipRRect(
-              borderRadius: BorderRadius.circular(16),
-              child: CachedNetworkImage(
-                imageUrl: challenge.coverImage!,
-                height: 140,
-                width: double.infinity,
-                fit: BoxFit.cover,
-              ),
-            ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      challenge.title, 
-                      style: TextStyle(
-                        fontSize: 18, 
-                        fontWeight: FontWeight.bold, 
-                        color: Theme.of(context).primaryColor
-                      )
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Due ${DateFormat('h:mm a').format(challenge.deadline)}', 
-                      style: TextStyle(
-                        fontSize: 12, 
-                        color: Theme.of(context).textTheme.labelLarge?.color
-                      )
-                    ),
-                  ],
-                ),
-              ),
-              Icon(
-                LucideIcons.chevronRight, 
-                color: Theme.of(context).textTheme.labelSmall?.color, 
-                size: 18
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+
 
   Widget _buildQuickActions() {
     return Row(

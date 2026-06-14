@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_header.dart';
+import '../widgets/app_card.dart';
 
 class PrivacySettingsScreen extends StatefulWidget {
   const PrivacySettingsScreen({super.key});
@@ -80,14 +81,10 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
   }
 
   Widget _buildSwitchTile(String title, String subtitle, bool value, ValueChanged<bool> onChanged, bool isDark) {
-    return Container(
+    return AppCard(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).cardTheme.color,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDark ? AppTheme.zinc900 : AppTheme.zinc200),
-      ),
+      borderRadius: 16,
       child: SwitchListTile(
         contentPadding: EdgeInsets.zero,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -102,35 +99,27 @@ class _PrivacySettingsScreenState extends State<PrivacySettingsScreen> {
 
   Widget _buildVisibilityOption(String title, String subtitle, String value, bool isDark) {
     final bool isSelected = _profileVisibility == value;
-    return GestureDetector(
+    return AppCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      borderRadius: 16,
+      border: isSelected ? Border.all(color: Theme.of(context).primaryColor, width: 2) : null,
       onTap: () => setState(() => _profileVisibility = value),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Theme.of(context).cardTheme.color,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? Theme.of(context).primaryColor : (isDark ? AppTheme.zinc900 : AppTheme.zinc200),
-            width: isSelected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                  const SizedBox(height: 4),
-                  Text(subtitle, style: const TextStyle(color: AppTheme.zinc500, fontSize: 12)),
-                ],
-              ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                const SizedBox(height: 4),
+                Text(subtitle, style: const TextStyle(color: AppTheme.zinc500, fontSize: 12)),
+              ],
             ),
-            if (isSelected)
-              Icon(LucideIcons.checkCircle, color: Theme.of(context).primaryColor, size: 18),
-          ],
-        ),
+          ),
+          if (isSelected)
+            Icon(LucideIcons.checkCircle, color: Theme.of(context).primaryColor, size: 18),
+        ],
       ),
     );
   }

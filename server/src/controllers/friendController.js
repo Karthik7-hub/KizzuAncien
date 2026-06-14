@@ -108,6 +108,24 @@ exports.getFriends = async (req, res, next) => {
       const friend = isRequester ? f.recipient.toObject() : f.requester.toObject();
       const friendId = friend._id;
 
+      const todayStart = new Date().setHours(0,0,0,0);
+      const yesterdayStart = todayStart - 86400000;
+      if (f.streak > 0 && f.lastStreakUpdate && new Date(f.lastStreakUpdate) < new Date(yesterdayStart)) {
+        f.streak = 0;
+        await f.save();
+
+        const updateStreakForUser = async (uId) => {
+          const allUserFriendships = await Friend.find({
+            status: 'accepted',
+            $or: [{ requester: uId }, { recipient: uId }]
+          });
+          const bestUserStreak = Math.max(...allUserFriendships.map(fs => fs.streak), 0);
+          await User.findByIdAndUpdate(uId, { $set: { currentStreak: bestUserStreak } });
+        };
+        await updateStreakForUser(userId);
+        await updateStreakForUser(friendId);
+      }
+
       const lastChallenge = await Challenge.findOne({
         status: 'approved',
         $or: [

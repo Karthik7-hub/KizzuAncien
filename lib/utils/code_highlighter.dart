@@ -15,8 +15,6 @@ class CodeHighlighter {
     final stringColor = isDark ? const Color(0xFF9ECE6A) : const Color(0xFF98C379); // green
     final commentColor = isDark ? const Color(0xFF565F89) : const Color(0xFFABB2BF); // slate / grey
     final numberColor = isDark ? const Color(0xFFBB9AF7) : const Color(0xFFD19A66); // purple / orange-brown
-    final tagColor = isDark ? const Color(0xFF7AA2F7) : const Color(0xFF61AFEF); // blue
-
     // List of regex patterns and their matching styles
     final keywords = {
       'c++': [
@@ -64,24 +62,16 @@ class CodeHighlighter {
     
     final String regexSrc;
     if (language.toLowerCase() == 'python') {
-      regexSrc = '(' + 
-          '#.*' + // Comment
-          ')|(' +
-          '["\']{3}[\\s\\S]*?["\']{3}' + // Triple quoted strings
-          '|"(?:\\\\.|[^"\\\\])*"' + // Double quoted
-          '|\'(?:\\\\.|[^\'\\\\])*\'' + // Single quoted
-          ')|(' +
-          keywordPattern +
-          ')|(\\b\\d+\\b)';
+      regexSrc = '(#.*)|('
+          '["\']{3}[\\s\\S]*?["\']{3}'
+          '|"(?:\\\\.|[^"\\\\])*"'
+          '|\'(?:\\\\.|[^\'\\\\])*\''
+          ')|($keywordPattern)|(\\b\\d+\\b)';
     } else {
-      regexSrc = '(' +
-          '\\/\\/.*|\\/\\*[\\s\\S]*?\\*\\/' + // Comments
-          ')|(' +
-          '"(?:\\\\.|[^"\\\\])*"' + // Double quoted strings
-          '|\'(?:\\\\.|[^\'\\\\])*\'' + // Single quoted strings
-          ')|(' +
-          keywordPattern +
-          ')|(\\b\\d+\\b)';
+      regexSrc = '(\\/\\/.*|\\/\\*[\\s\\S]*?\\*\\/)|('
+          '"(?:\\\\.|[^"\\\\])*"'
+          '|\'(?:\\\\.|[^\'\\\\])*\''
+          ')|($keywordPattern)|(\\b\\d+\\b)';
     }
 
     final regExp = RegExp(regexSrc);

@@ -41,8 +41,16 @@ class _LogoutScreenState extends State<LogoutScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : AppTheme.white;
+    final textColor = isDark ? AppTheme.zinc400 : AppTheme.zinc600;
+    final shadowColor = isDark ? AppTheme.white.withValues(alpha: 0.05) : AppTheme.black.withValues(alpha: 0.05);
+    final indicatorColor = isDark ? AppTheme.white : AppTheme.black;
+    final fallbackIconColor = isDark ? AppTheme.white : AppTheme.black;
+    final fallbackBgColor = isDark ? AppTheme.zinc900 : AppTheme.zinc100;
+
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: bgColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -54,7 +62,7 @@ class _LogoutScreenState extends State<LogoutScreen> {
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.white.withValues(alpha: 0.05),
+                    color: shadowColor,
                     blurRadius: 20,
                     spreadRadius: 2,
                   ),
@@ -67,10 +75,10 @@ class _LogoutScreenState extends State<LogoutScreen> {
                   width: 80,
                   height: 80,
                   placeholderBuilder: (BuildContext context) => Container(
-                    color: AppTheme.zinc900,
-                    child: const Icon(
+                    color: fallbackBgColor,
+                    child: Icon(
                       Icons.power_settings_new,
-                      color: AppTheme.white,
+                      color: fallbackIconColor,
                       size: 40,
                     ),
                   ),
@@ -78,16 +86,16 @@ class _LogoutScreenState extends State<LogoutScreen> {
               ),
             ),
             const SizedBox(height: 32),
-            const CircularProgressIndicator(
-              color: AppTheme.white,
+            CircularProgressIndicator(
+              color: indicatorColor,
               strokeWidth: 2,
             ),
             const SizedBox(height: 24),
-            const Text(
+            Text(
               'Signing out safely...',
               style: TextStyle(
                 fontSize: 14,
-                color: AppTheme.zinc400,
+                color: textColor,
                 fontWeight: FontWeight.bold,
                 letterSpacing: 1.5,
               ),

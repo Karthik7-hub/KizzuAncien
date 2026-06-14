@@ -25,14 +25,27 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultColor = isDark ? AppTheme.zinc950 : AppTheme.white;
+    final defaultBorder = border ?? (isDark ? Border.all(color: AppTheme.zinc900) : null);
+    final defaultBoxShadow = boxShadow ?? [
+      BoxShadow(
+        color: isDark
+            ? Colors.black.withValues(alpha: 0.3)
+            : Colors.black.withValues(alpha: 0.04),
+        blurRadius: 16,
+        offset: const Offset(0, 4),
+      )
+    ];
+
     final card = Container(
       padding: padding ?? const EdgeInsets.all(20),
       margin: margin,
       decoration: BoxDecoration(
-        color: color ?? AppTheme.zinc950,
+        color: color ?? defaultColor,
         borderRadius: BorderRadius.circular(borderRadius ?? 24),
-        border: border ?? Border.all(color: AppTheme.zinc900),
-        boxShadow: boxShadow,
+        border: defaultBorder,
+        boxShadow: defaultBoxShadow,
       ),
       child: child,
     );

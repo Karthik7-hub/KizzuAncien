@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/challenge_provider.dart';
 import '../providers/friend_provider.dart';

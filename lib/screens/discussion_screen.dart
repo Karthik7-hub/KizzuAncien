@@ -21,12 +21,18 @@ class DiscussionScreen extends StatefulWidget {
 class _DiscussionScreenState extends State<DiscussionScreen> {
   final TextEditingController _messageController = TextEditingController();
   bool _isSending = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChallengeProvider>().fetchMessages(widget.challenge.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<ChallengeProvider>().fetchMessages(widget.challenge.id);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -51,6 +57,120 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
     }
   }
 
+  Widget _buildSkeletons() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarColor = isDark ? AppTheme.zinc900 : AppTheme.zinc200;
+
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      physics: const NeverScrollableScrollPhysics(),
+      children: [
+        // Skeleton Message 1 (Left)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: avatarColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonBlock(width: 80, height: 10, borderRadius: 4),
+                  SizedBox(height: 6),
+                  _SkeletonBlock(width: 180, height: 44, borderRadius: 16),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Skeleton Message 2 (Right)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _SkeletonBlock(width: 120, height: 36, borderRadius: 16, isRightAligned: true),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: avatarColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+        ),
+        // Skeleton Message 3 (Left)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: avatarColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SkeletonBlock(width: 60, height: 10, borderRadius: 4),
+                  SizedBox(height: 6),
+                  _SkeletonBlock(width: 140, height: 40, borderRadius: 16),
+                ],
+              ),
+            ],
+          ),
+        ),
+        // Skeleton Message 4 (Right)
+        Padding(
+          padding: const EdgeInsets.only(bottom: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _SkeletonBlock(width: 200, height: 56, borderRadius: 16, isRightAligned: true),
+                ],
+              ),
+              const SizedBox(width: 12),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: avatarColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = context.watch<AuthProvider>().user;
@@ -73,16 +193,18 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
       body: Column(
         children: [
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              reverse: true,
-              itemCount: messages.length,
-              itemBuilder: (context, index) {
-                // Showing messages in reverse order since it's a chat
-                final message = messages[messages.length - 1 - index];
-                return _buildMessageItem(message, user.id);
-              },
-            ),
+            child: _isLoading
+                ? _buildSkeletons()
+                : ListView.builder(
+                    padding: const EdgeInsets.all(20),
+                    reverse: true,
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      // Showing messages in reverse order since it's a chat
+                      final message = messages[messages.length - 1 - index];
+                      return _buildMessageItem(message, user.id);
+                    },
+                  ),
           ),
           _buildActionArea(),
         ],
@@ -259,6 +381,67 @@ class _DiscussionScreenState extends State<DiscussionScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkeletonBlock extends StatefulWidget {
+  final double width;
+  final double height;
+  final double borderRadius;
+  final bool isRightAligned;
+
+  const _SkeletonBlock({
+    required this.width,
+    required this.height,
+    this.borderRadius = 16,
+    this.isRightAligned = false,
+  });
+
+  @override
+  State<_SkeletonBlock> createState() => _SkeletonBlockState();
+}
+
+class _SkeletonBlockState extends State<_SkeletonBlock> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final baseColor = isDark ? AppTheme.zinc900 : AppTheme.zinc200;
+    
+    return FadeTransition(
+      opacity: Tween<double>(begin: 0.4, end: 0.8).animate(
+        CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      ),
+      child: Container(
+        width: widget.width,
+        height: widget.height,
+        decoration: BoxDecoration(
+          color: baseColor,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(widget.borderRadius),
+            topRight: Radius.circular(widget.borderRadius),
+            bottomLeft: Radius.circular(widget.isRightAligned ? widget.borderRadius : 4),
+            bottomRight: Radius.circular(widget.isRightAligned ? 4 : widget.borderRadius),
+          ),
         ),
       ),
     );

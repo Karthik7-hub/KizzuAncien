@@ -22,6 +22,26 @@ exports.getProfile = async (req, res, next) => {
       $or: [{ requester: userId }, { recipient: userId }]
     }).populate('requester recipient', 'name');
 
+    const todayStart = new Date().setHours(0,0,0,0);
+    const yesterdayStart = todayStart - 86400000;
+
+    let resetOccurred = false;
+    for (let f of allFriendships) {
+      if (f.streak > 0 && f.lastStreakUpdate && new Date(f.lastStreakUpdate) < new Date(yesterdayStart)) {
+        f.streak = 0;
+        await f.save();
+        resetOccurred = true;
+      }
+    }
+
+    if (resetOccurred) {
+      const bestStreak = Math.max(...allFriendships.map(f => f.streak), 0);
+      if (user.currentStreak !== bestStreak) {
+        user.currentStreak = bestStreak;
+        await user.save();
+      }
+    }
+
     let longestOverallStreak = 0;
     let streakFriendName = '';
     let activeStreaksCount = 0;
@@ -143,6 +163,26 @@ exports.getUserProfile = async (req, res, next) => {
         { requester: userId, recipient: req.user._id }
       ]
     });
+
+    if (relationship && relationship.status === 'accepted') {
+      const todayStart = new Date().setHours(0,0,0,0);
+      const yesterdayStart = todayStart - 86400000;
+      if (relationship.streak > 0 && relationship.lastStreakUpdate && new Date(relationship.lastStreakUpdate) < new Date(yesterdayStart)) {
+        relationship.streak = 0;
+        await relationship.save();
+
+        const updateStreakForUser = async (uId) => {
+          const allUserFriendships = await Friend.find({
+            status: 'accepted',
+            $or: [{ requester: uId }, { recipient: uId }]
+          });
+          const bestUserStreak = Math.max(...allUserFriendships.map(f => f.streak), 0);
+          await User.findByIdAndUpdate(uId, { $set: { currentStreak: bestUserStreak } });
+        };
+        await updateStreakForUser(req.user._id);
+        await updateStreakForUser(userId);
+      }
+    }
 
     let relationshipStatus = 'NOT_FRIENDS';
     if (relationship) {

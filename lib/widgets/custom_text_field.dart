@@ -13,6 +13,7 @@ class CustomTextField extends StatelessWidget {
   final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
   final bool enabled;
+  final ValueChanged<String>? onChanged;
 
   const CustomTextField({
     super.key,
@@ -26,6 +27,7 @@ class CustomTextField extends StatelessWidget {
     this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
     this.enabled = true,
+    this.onChanged,
   });
 
   @override
@@ -41,6 +43,7 @@ class CustomTextField extends StatelessWidget {
       textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
       enabled: enabled,
+      onChanged: onChanged,
       style: TextStyle(
         color: enabled
             ? (isDark ? AppTheme.white : AppTheme.zinc950)

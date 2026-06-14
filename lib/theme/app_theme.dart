@@ -41,9 +41,26 @@ class AppTheme {
     final Color cardColor = isDark ? zinc950 : white; // Pure white cards for light
     final Color borderColor = isDark ? zinc900 : zinc200; // Subtle gray borders
 
+    final colorScheme = isDark
+        ? const ColorScheme.dark(
+            primary: white,
+            secondary: zinc800,
+            surface: zinc950,
+            onSurface: white,
+            error: Colors.redAccent,
+          )
+        : const ColorScheme.light(
+            primary: black,
+            secondary: zinc200,
+            surface: white,
+            onSurface: zinc950,
+            error: Colors.redAccent,
+          );
+
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
+      colorScheme: colorScheme,
       scaffoldBackgroundColor: bgColor,
       primaryColor: textColor,
       canvasColor: bgColor,

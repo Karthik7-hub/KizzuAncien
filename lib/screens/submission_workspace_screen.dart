@@ -27,12 +27,18 @@ class SubmissionWorkspaceScreen extends StatefulWidget {
 
 class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
   bool _isReordering = false;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChallengeProvider>().fetchNotes(widget.challenge.id);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<ChallengeProvider>().fetchNotes(widget.challenge.id);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     });
   }
 
@@ -205,15 +211,22 @@ class _SubmissionWorkspaceScreenState extends State<SubmissionWorkspaceScreen> {
         children: [
           _buildParticipantsHeader(currentChallenge),
           Expanded(
-            child: notes.isEmpty
-                ? const EmptyState(
-                    icon: LucideIcons.layers,
-                    title: 'Workspace is empty',
-                    subtitle: 'Add code templates, images, and explanations to collaborate.',
+            child: _isLoading
+                ? Center(
+                    child: CircularProgressIndicator(
+                      color: Theme.of(context).primaryColor,
+                      strokeWidth: 2,
+                    ),
                   )
-                : _isReordering
-                    ? _buildReorderableList(notes)
-                    : _buildSplitWorkspaceLists(creatorNotes, recipientNotes, user?.id),
+                : notes.isEmpty
+                    ? const EmptyState(
+                        icon: LucideIcons.layers,
+                        title: 'Workspace is empty',
+                        subtitle: 'Add code templates, images, and explanations to collaborate.',
+                      )
+                    : _isReordering
+                        ? _buildReorderableList(notes)
+                        : _buildSplitWorkspaceLists(creatorNotes, recipientNotes, user?.id),
           ),
           _buildWorkspaceActionArea(currentChallenge, isRecipient),
         ],

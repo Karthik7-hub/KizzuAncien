@@ -4,7 +4,6 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/challenge_provider.dart';
 import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
-import '../widgets/challenge_card.dart';
 import '../widgets/challenge_filter_dropdown.dart';
 import '../models/challenge.dart';
 

@@ -82,8 +82,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           pageBuilder: (context, animation, secondaryAnimation) => 
             authStatus == AuthStatus.authenticated ? const MainScreen() : const AuthScreen(),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
             final fade = FadeTransition(opacity: animation, child: child);
-            return Container(color: AppTheme.black, child: fade);
+            return Container(color: isDark ? AppTheme.black : AppTheme.white, child: fade);
           },
           transitionDuration: const Duration(milliseconds: 600),
         ),
@@ -102,8 +103,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     // We want the splash to render IMMEDIATELY.
     // The background should be static and match native splash.
     // Only the internal components should animate if needed.
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? Colors.black : AppTheme.white;
+    final textColor = isDark ? AppTheme.white : AppTheme.zinc950;
+    final subtextColor = isDark ? AppTheme.zinc600 : AppTheme.zinc400;
+    final shadowColor = isDark ? AppTheme.white.withValues(alpha: 0.15) : AppTheme.black.withValues(alpha: 0.12);
+
     return Scaffold(
-      backgroundColor: Colors.black, // Always black for professional splash transition
+      backgroundColor: bgColor,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -118,7 +125,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                   // Subtle shadow that appears with the icon
                   boxShadow: [
                     BoxShadow(
-                      color: AppTheme.white.withValues(alpha: 0.1),
+                      color: shadowColor,
                       blurRadius: 30,
                       spreadRadius: 5,
                     ),
@@ -137,23 +144,23 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
             const SizedBox(height: 32),
             FadeTransition(
               opacity: _fadeAnimation,
-              child: const Column(
+              child: Column(
                 children: [
                   Text(
                     'KizzuAncien',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: AppTheme.white,
+                      color: textColor,
                       letterSpacing: -1,
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Text(
                     'SOCIAL CHALLENGES REDEFINED',
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppTheme.zinc600,
+                      color: subtextColor,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 3,
                     ),

@@ -35,6 +35,11 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   final List<User> _selectedFriends = [];
   List<User> _filteredFriends = [];
 
+  bool get _canLaunch =>
+      _selectedFriends.isNotEmpty &&
+      _titleController.text.trim().isNotEmpty &&
+      !_isLaunching;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -42,6 +47,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _titleController.addListener(_onFormChanged);
     if (widget.recipient != null) {
       _selectedFriends.add(widget.recipient!);
     }
@@ -52,11 +58,16 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
 
   @override
   void dispose() {
+    _titleController.removeListener(_onFormChanged);
     WidgetsBinding.instance.removeObserver(this);
     _titleController.dispose();
     _descController.dispose();
     _friendSearchController.dispose();
     super.dispose();
+  }
+
+  void _onFormChanged() {
+    setState(() {});
   }
 
   @override
@@ -170,8 +181,7 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
             CustomButton(
               text: 'Launch Challenge',
               isLoading: _isLaunching,
-              onPressed: () async {
-                if (_selectedFriends.isEmpty || _isLaunching || _titleController.text.isEmpty) return;
+              onPressed: _canLaunch ? () async {
                 setState(() => _isLaunching = true);
                 
                 final challengeProvider = context.read<ChallengeProvider>();
@@ -218,10 +228,10 @@ class _CreateChallengeScreenState extends State<CreateChallengeScreen> with Auto
                   );
                 }
                 setState(() => _isLaunching = false);
-              },
+              } : null,
               backgroundColor: primaryColor,
               textColor: bgColor,
-              icon: Icon(LucideIcons.rocket, size: 20, color: bgColor),
+              icon: Icon(LucideIcons.rocket, size: 20, color: _canLaunch ? bgColor : (Theme.of(context).brightness == Brightness.dark ? AppTheme.zinc600 : AppTheme.zinc400)),
             ),
             const SizedBox(height: 40),
           ],
